@@ -1,0 +1,9 @@
+[package]
+name = "fetris_protocol"
+version = "0.1.0"
+authors = ["lowczarc"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0.101", features = ["derive"] }
+bincode = "1.2.0"

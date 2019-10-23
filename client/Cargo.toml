@@ -1,0 +1,8 @@
+[package]
+name = "fetris_client"
+version = "0.1.0"
+authors = ["lowczarc"]
+edition = "2018"
+
+[dependencies]
+fetris_protocol = { path = "../protocol" }

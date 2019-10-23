@@ -10,9 +10,7 @@ fn main() -> Result<(), std::io::Error> {
     thread::spawn(move || {
         loop {
             if let Ok(request) = ServerRequest::from_reader(&reader) {
-                match request {
-                    ServerRequest::Message(name, content) => println!("<{}> {}", name, content),
-                }
+                println!("{:?}", request);
             } else {
                 break;
             }
@@ -20,9 +18,8 @@ fn main() -> Result<(), std::io::Error> {
         println!("Invalid package");
     });
 
+    stream.write(&ClientRequest::AskForAGame.into_bytes())?;
     loop {
-        println!("Sent !");
-        stream.write(&ClientRequest::Message("Lancelot".into()).into_bytes())?;
         thread::sleep(time::Duration::from_secs(1));
     }
     Ok(())

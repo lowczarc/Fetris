@@ -5,11 +5,15 @@ pub type DeserializeError = bincode::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ClientRequest {
-    Message(String),
+    SetName(String),
+    AskForAGame,
+    Input(char),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerRequest {
+    GameReady,
+    BadRequest,
     Message(String, String),
 }
 

@@ -18,15 +18,13 @@ pub fn game_main_thread(stream_list: StreamList, receiver: Receiver<NetworkPacke
     loop {
         thread::sleep(time::Duration::from_millis(10));
         for (_, pool) in pools.iter_mut() {
-            if pool.is_to_call() {
-                pool.update();
-            }
+            pool.update();
         }
 
         for packet in receiver.try_iter() {
             if let Err(_) = match packet.action {
                 NetworkAction::OpenStream => {
-                    players.insert(packet.addr, Player::new(packet.addr));
+                    players.insert(packet.addr, Player::new());
                     println!("{} opened stream", packet.addr);
                     Ok(())
                 }
@@ -72,6 +70,16 @@ pub fn game_main_thread(stream_list: StreamList, receiver: Receiver<NetworkPacke
                         }
                         Ok(())
                     }
+                }
+                NetworkAction::Request(ClientRequest::Input(input)) => {
+                    let player = players.get_mut(&packet.addr).unwrap();
+
+                    if let PoolState::Pool(id) = player.pool() {
+                        let pool = pools.get_mut(&id).unwrap();
+
+                        pool.handle_player_input(&packet.addr, input);
+                    }
+                    Ok(())
                 }
                 _ => Err(()),
             } {

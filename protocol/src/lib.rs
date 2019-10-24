@@ -1,19 +1,22 @@
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
+pub mod game;
+
 pub type DeserializeError = bincode::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ClientRequest {
     SetName(String),
     AskForAGame,
-    Input(char),
+    Input(game::Input),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerRequest {
-    GameReady,
     BadRequest,
+    GameReady(game::PlayerGame),
+    Action(game::GameAction, game::PlayerGame),
     Message(String, String),
 }
 

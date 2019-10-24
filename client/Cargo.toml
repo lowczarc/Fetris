@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 fetris_protocol = { path = "../protocol" }
+ncurses = "5.99.0"

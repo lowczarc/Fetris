@@ -1,26 +1,123 @@
-use fetris_protocol::{ClientRequest, ServerRequest};
-use std::io::{BufRead, BufReader, Write};
+use fetris_protocol::{game::Input, game::TetriminoType, ClientRequest, ServerRequest};
+use ncurses::*;
+use std::io::Write;
 use std::net::TcpStream;
 use std::{thread, time};
 
+const ORANGE: i16 = 55;
+
+const PAIR_CYAN: i16 = 1;
+const PAIR_BLUE: i16 = 2;
+const PAIR_ORANGE: i16 = 3;
+const PAIR_YELLOW: i16 = 4;
+const PAIR_GREEN: i16 = 5;
+const PAIR_MAGENTA: i16 = 6;
+const PAIR_RED: i16 = 7;
+const PAIR_WHITE: i16 = 8;
+
 fn main() -> Result<(), std::io::Error> {
     let mut stream = TcpStream::connect("127.0.0.1:3000")?;
+    initscr();
+    start_color();
+
+    cbreak();
+    noecho();
+    keypad(stdscr(), true);
+    init_color(ORANGE, 1000, 680, 0);
+    init_pair(PAIR_CYAN, constants::COLOR_WHITE, constants::COLOR_CYAN);
+    init_pair(PAIR_BLUE, constants::COLOR_WHITE, constants::COLOR_BLUE);
+    init_pair(PAIR_ORANGE, constants::COLOR_WHITE, ORANGE);
+    init_pair(PAIR_YELLOW, constants::COLOR_WHITE, constants::COLOR_YELLOW);
+    init_pair(PAIR_GREEN, constants::COLOR_WHITE, constants::COLOR_GREEN);
+    init_pair(
+        PAIR_MAGENTA,
+        constants::COLOR_WHITE,
+        constants::COLOR_MAGENTA,
+    );
+    init_pair(PAIR_RED, constants::COLOR_WHITE, constants::COLOR_RED);
+    init_pair(PAIR_WHITE, constants::COLOR_WHITE, constants::COLOR_WHITE);
 
     let reader = stream.try_clone().unwrap();
     thread::spawn(move || {
         loop {
             if let Ok(request) = ServerRequest::from_reader(&reader) {
-                println!("{:?}", request);
+                clear();
+                if let ServerRequest::Action(_, game) = request {
+                    let matrix = game.matrix();
+                    let tetrimino = game.current_tetrimino();
+
+                    for y in 0..22 {
+                        let y = 21 - y;
+                        for x in 0..10 {
+                            if matrix[x][y] != None
+                                || (tetrimino.is_some()
+                                    && tetrimino.unwrap().check_position(x as i8, y as i8))
+                            {
+                                let ttype = if let Some(ttype) = matrix[x][y] {
+                                    ttype
+                                } else {
+                                    tetrimino.unwrap().ttype()
+                                };
+
+                                let color = match ttype {
+                                    TetriminoType::I => PAIR_CYAN,
+                                    TetriminoType::J => PAIR_BLUE,
+                                    TetriminoType::L => PAIR_ORANGE,
+                                    TetriminoType::O => PAIR_YELLOW,
+                                    TetriminoType::S => PAIR_GREEN,
+                                    TetriminoType::T => PAIR_MAGENTA,
+                                    TetriminoType::Z => PAIR_RED,
+                                    TetriminoType::None => PAIR_WHITE,
+                                };
+                                attron(COLOR_PAIR(color));
+                                printw("  ");
+                                attroff(COLOR_PAIR(color));
+                            } else {
+                                printw("  ");
+                            }
+                        }
+                        printw("|\n");
+                    }
+                    printw(&format!(
+                        "{:?}\n________________________________________________\n\n",
+                        tetrimino
+                    ));
+                    refresh();
+                }
             } else {
                 break;
             }
         }
         println!("Invalid package");
+        reader.shutdown(std::net::Shutdown::Both);
     });
 
-    stream.write(&ClientRequest::AskForAGame.into_bytes())?;
+    stream.write(&ClientRequest::AskForAGame.into_bytes());
     loop {
-        thread::sleep(time::Duration::from_secs(1));
+        match getch() {
+            constants::KEY_LEFT => {
+                stream.write(&ClientRequest::Input(Input::Left).into_bytes());
+                printw("LEFT");
+            }
+            constants::KEY_RIGHT => {
+                stream.write(&ClientRequest::Input(Input::Right).into_bytes());
+                printw("RIGHT");
+            }
+            constants::KEY_DOWN => {
+                stream.write(&ClientRequest::Input(Input::FastMove).into_bytes());
+                printw("FAST");
+            }
+            10 => {
+                stream.write(&ClientRequest::Input(Input::Rotate).into_bytes());
+                printw("FAST");
+            }
+            _ => {}
+        };
+
+        if stream.peer_addr().is_err() {
+            break;
+        }
     }
+    endwin();
     Ok(())
 }

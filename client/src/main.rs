@@ -49,11 +49,11 @@ fn main() -> Result<(), std::io::Error> {
                     for y in 0..22 {
                         let y = 21 - y;
                         for x in 0..10 {
-                            if matrix[x][y] != None
+                            if matrix[y][x] != None
                                 || (tetrimino.is_some()
                                     && tetrimino.unwrap().check_position(x as i8, y as i8))
                             {
-                                let ttype = if let Some(ttype) = matrix[x][y] {
+                                let ttype = if let Some(ttype) = matrix[y][x] {
                                     ttype
                                 } else {
                                     tetrimino.unwrap().ttype()

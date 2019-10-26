@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-type Matrix = [[Option<TetriminoType>; 32]; 10];
+type Matrix = [[Option<TetriminoType>; 10]; 32];
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum TetriminoType {
     I,
@@ -149,10 +149,10 @@ impl Tetrimino {
                 let matrix_pos_y = -(y as i8) + self.position.1;
                 if tetri_shape[x][y]
                     && (matrix_pos_x < 0
-                        || matrix_pos_x >= matrix.len() as i8
+                        || matrix_pos_x >= matrix[0].len() as i8
                         || matrix_pos_y < 0
-                        || matrix_pos_y >= matrix[0].len() as i8
-                        || matrix[matrix_pos_x as usize][matrix_pos_y as usize].is_some())
+                        || matrix_pos_y >= matrix.len() as i8
+                        || matrix[matrix_pos_y as usize][matrix_pos_x as usize].is_some())
                 {
                     return false;
                 }
@@ -207,7 +207,7 @@ impl PlayerGame {
     pub fn new(name: String) -> Self {
         Self {
             name,
-            matrix: [[None; 32]; 10],
+            matrix: [[None; 10]; 32],
             current_tetrimino: None,
             stocked_tetrimino: TetriminoType::None,
             pending_tetriminos: Vec::new(),
@@ -230,7 +230,36 @@ impl PlayerGame {
         self.current_tetrimino = Some(Tetrimino::new(ttype));
     }
 
-    pub fn place_current_tetrimino(&mut self) {
+    pub fn is_line_complete(&self, y: usize) -> bool {
+        for x in 0..self.matrix[0].len() {
+            if self.matrix[y][x].is_none() {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn remove_complete_lines(&mut self) -> Vec<u8> {
+        let mut line_to_remove = Vec::new();
+        for y in 0..self.matrix.len() {
+            if self.is_line_complete(y) {
+                line_to_remove.push(y as u8);
+            }
+        }
+
+        for line in line_to_remove.iter().rev() {
+            println!("remove line :{}", line);
+            for y in (*line as usize)..self.matrix.len() - 1 {
+                println!("{} to {}", y + 1, y);
+                self.matrix[y] = self.matrix[y + 1];
+            }
+            self.matrix[self.matrix.len() - 1] = [None; 10];
+        }
+
+        line_to_remove
+    }
+
+    pub fn place_current_tetrimino(&mut self) -> Vec<u8> {
         if let Some(tetrimino) = self.current_tetrimino {
             let tetri_shape = tetrimino.to_blocks();
 
@@ -239,13 +268,14 @@ impl PlayerGame {
                     let matrix_pos_x = x as i8 + tetrimino.position.0;
                     let matrix_pos_y = -(y as i8) + tetrimino.position.1;
                     if tetri_shape[x][y] {
-                        self.matrix[matrix_pos_x as usize][matrix_pos_y as usize] =
+                        self.matrix[matrix_pos_y as usize][matrix_pos_x as usize] =
                             Some(tetrimino.ttype());
                     }
                 }
             }
         }
         self.current_tetrimino = None;
+        self.remove_complete_lines()
     }
 }
 

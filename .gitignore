@@ -1,2 +1,5 @@
 /target
+client/target
+server/target
+protocol/target
 **/*.rs.bk

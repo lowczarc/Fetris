@@ -63,7 +63,6 @@ impl TetriminoType {
             (Self::I, (false, true)) => [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)],
             (Self::I, (true, false)) => [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],
             _ => [(0, 0), (-r1, 0), (-r1, r0), (0, -2 * r0), (-r1, -2 * r0)],
-            _ => unimplemented!(),
         }
     }
 }
@@ -96,6 +95,7 @@ impl Tetrimino {
             Direction::Left => self.position.0 -= 1,
             Direction::Right => self.position.0 += 1,
             Direction::Down => self.position.1 -= 1,
+            Direction::Up => self.position.1 += 1,
             _ => {}
         }
     }
@@ -277,6 +277,19 @@ impl PlayerGame {
         self.current_tetrimino = None;
         self.remove_complete_lines()
     }
+
+    pub fn add_garbage(&mut self, hole: usize) {
+        let mut new_row = [Some(TetriminoType::None); 10];
+        new_row[hole] = None;
+
+        for y in 0..31 {
+            let y = 31 - y;
+
+            self.matrix[y] = self.matrix[y - 1];
+        }
+
+        self.matrix[0] = new_row;
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -284,6 +297,7 @@ pub enum Direction {
     Left,
     Right,
     Down,
+    Up,
     FastDown,
 }
 
@@ -292,6 +306,7 @@ pub enum GameAction {
     MoveCurrentTetrimino(Direction),
     Rotate,
     NewTetrimino,
+    GetGarbage(u32),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

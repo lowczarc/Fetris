@@ -31,6 +31,7 @@ fn tetrimino_rand() -> TetriminoType {
 pub struct PlayerInfos {
     pub player: PlayerGame,
     pub last_call: Instant,
+    pub garbage_received: u32,
 }
 
 impl PlayerInfos {
@@ -38,6 +39,7 @@ impl PlayerInfos {
         Self {
             player,
             last_call: Instant::now(),
+            garbage_received: 0,
         }
     }
 }
@@ -79,7 +81,57 @@ impl<'a> Pool<'a> {
         self.players.remove(socket);
     }
 
+    pub fn send_garbage(&mut self, sender: &SocketAddr, row_broken: u32, is_t_spin: bool) {
+        let garbage_to_send = match (is_t_spin, row_broken) {
+            (false, 2) => 1,
+            (false, 3) => 2,
+            (false, 4) => 4,
+            (true, x) => 2 * x,
+            (_, _) => 0,
+        };
+
+        if garbage_to_send == 0 {
+            return;
+        }
+
+        let mut receiver: Option<SocketAddr> = None;
+        let mut last_receiver_garbage = 0;
+
+        for (addr, player) in self.players.iter() {
+            if addr == sender {
+                continue;
+            }
+            if receiver.is_none() || last_receiver_garbage > player.garbage_received {
+                receiver = Some(addr.clone());
+                last_receiver_garbage = player.garbage_received;
+            }
+        }
+
+        println!(
+            "Garbage to send: {}, Receiver: {:?}, t-spin: {}",
+            garbage_to_send, receiver, is_t_spin
+        );
+
+        if let Some(addr) = receiver {
+            let player = self.players.get_mut(&addr).unwrap();
+
+            for _ in 0..garbage_to_send {
+                player
+                    .player
+                    .add_garbage(rand::thread_rng().gen_range(0, 10));
+            }
+            let _ = self.stream_list.send_to(
+                &addr,
+                ServerRequest::Action(
+                    GameAction::GetGarbage(garbage_to_send),
+                    player.player.clone(),
+                ),
+            );
+        }
+    }
+
     pub fn update(&mut self) {
+        let mut garbage: Vec<(SocketAddr, u32, bool)> = Vec::new();
         for (socket, player) in self.players.iter_mut() {
             if Instant::now().duration_since(player.last_call) < self.call_every {
                 continue;
@@ -96,7 +148,12 @@ impl<'a> Pool<'a> {
                         ),
                     );
                 } else {
-                    player.player.place_current_tetrimino();
+                    let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
+                        && !tetrimino.can_move_to(&matrix, Direction::Right)
+                        && !tetrimino.can_move_to(&matrix, Direction::Up);
+                    let row_broken = player.player.place_current_tetrimino();
+
+                    garbage.push((socket.clone(), row_broken.len() as u32, is_t_spin));
                 }
             } else {
                 player.player.change_current_tetrimino(tetrimino_rand());
@@ -107,9 +164,13 @@ impl<'a> Pool<'a> {
             }
             player.last_call = Instant::now();
         }
+        for (addr, row_broken, is_t_spin) in garbage.into_iter() {
+            self.send_garbage(&addr, row_broken, is_t_spin);
+        }
     }
 
     pub fn handle_player_input(&mut self, socket: &SocketAddr, input: Input) {
+        let mut garbage: Option<(SocketAddr, u32, bool)> = None;
         let player = self.players.get_mut(socket).unwrap();
         match input {
             Input::Left => {
@@ -147,14 +208,17 @@ impl<'a> Pool<'a> {
             Input::FastMove => {
                 let matrix = player.player.matrix().clone();
                 if let Some(tetrimino) = player.player.current_tetrimino_mut() {
-                    loop {
-                        if tetrimino.can_move_to(&matrix, Direction::Down) {
-                            tetrimino.apply_direction(Direction::Down);
-                        } else {
-                            player.player.place_current_tetrimino();
-                            break;
-                        }
+                    while tetrimino.can_move_to(&matrix, Direction::Down) {
+                        tetrimino.apply_direction(Direction::Down);
                     }
+
+                    let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
+                        && !tetrimino.can_move_to(&matrix, Direction::Right)
+                        && !tetrimino.can_move_to(&matrix, Direction::Up);
+                    let row_broken = player.player.place_current_tetrimino();
+
+                    garbage = Some((socket.clone(), row_broken.len() as u32, is_t_spin));
+
                     let _ = self.stream_list.send_to(
                         socket,
                         ServerRequest::Action(
@@ -177,7 +241,10 @@ impl<'a> Pool<'a> {
                     }
                 }
             }
-            _ => {}
+        }
+
+        if let Some((addr, row_broken, is_t_spin)) = garbage {
+            self.send_garbage(&addr, row_broken, is_t_spin);
         }
     }
 
@@ -193,4 +260,4 @@ pub enum PoolState {
     None,
 }
 
-pub const POOL_SIZE: usize = 1;
+pub const POOL_SIZE: usize = 2;

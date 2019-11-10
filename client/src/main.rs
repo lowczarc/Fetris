@@ -53,6 +53,7 @@ fn main() -> Result<(), std::io::Error> {
                 if let ServerRequest::Action(_, game) = request {
                     let matrix = game.matrix();
                     let tetrimino = game.current_tetrimino();
+                    let stocked_tetrimino = game.stocked_tetrimino();
                     let prediction =
                         if let Some(mut tetrimino_prediction) = game.current_tetrimino().clone() {
                             while tetrimino_prediction.can_move_to(&matrix, Direction::Down) {
@@ -105,6 +106,32 @@ fn main() -> Result<(), std::io::Error> {
                         "{:?}\n________________________________________________\n\n",
                         tetrimino
                     ));
+                    if stocked_tetrimino != TetriminoType::None {
+                        for y in 0..stocked_tetrimino.to_blocks().len() {
+                            mv(y as i32, 22);
+                            printw("| ");
+                            for x in 0..stocked_tetrimino.to_blocks().len() {
+                                let color = match stocked_tetrimino {
+                                    TetriminoType::I => PAIR_CYAN,
+                                    TetriminoType::J => PAIR_BLUE,
+                                    TetriminoType::L => PAIR_ORANGE,
+                                    TetriminoType::O => PAIR_YELLOW,
+                                    TetriminoType::S => PAIR_GREEN,
+                                    TetriminoType::T => PAIR_MAGENTA,
+                                    TetriminoType::Z => PAIR_RED,
+                                    _ => unreachable!(),
+                                };
+                                if stocked_tetrimino.to_blocks()[x][y] {
+                                    attron(COLOR_PAIR(color));
+                                    printw("  ");
+                                    attroff(COLOR_PAIR(color));
+                                } else {
+                                    printw("  ");
+                                }
+                            }
+                            printw(" |");
+                        }
+                    }
                     refresh();
                 }
             } else {
@@ -128,6 +155,10 @@ fn main() -> Result<(), std::io::Error> {
             }
             constants::KEY_DOWN => {
                 stream.write(&ClientRequest::Input(Input::FastMove).into_bytes());
+                printw("FAST");
+            }
+            constants::KEY_UP => {
+                stream.write(&ClientRequest::Input(Input::StockTetrimino).into_bytes());
                 printw("FAST");
             }
             10 => {

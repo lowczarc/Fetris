@@ -241,6 +241,16 @@ impl<'a> Pool<'a> {
                     }
                 }
             }
+            Input::StockTetrimino => {
+                if player.player.current_tetrimino().is_some() {
+                    player.player.stock_current_tetrimino();
+                    let _ = self.stream_list.send_to(
+                        socket,
+                        ServerRequest::Action(GameAction::StockTetrimino, player.player.clone()),
+                    );
+                    player.last_call = Instant::now();
+                }
+            }
         }
 
         if let Some((addr, row_broken, is_t_spin)) = garbage {
@@ -260,4 +270,4 @@ pub enum PoolState {
     None,
 }
 
-pub const POOL_SIZE: usize = 2;
+pub const POOL_SIZE: usize = 1;

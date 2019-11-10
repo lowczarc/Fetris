@@ -7,7 +7,7 @@ mod game;
 mod network;
 
 fn main() -> Result<(), std::io::Error> {
-    let listener = TcpListener::bind("0.0.0.0:3000")?;
+    let listener = TcpListener::bind("0.0.0.0:3001")?;
     let stream_list = network::StreamList::new();
     let (sender, receiver) = mpsc::channel::<network::NetworkPacket>();
 

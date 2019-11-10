@@ -108,9 +108,7 @@ impl Tetrimino {
         for (x, y) in self.ttype.wall_kicks_tests(rotated_tetri.rotation).iter() {
             rotated_tetri.position.0 += x;
             rotated_tetri.position.1 -= y;
-            println!("{} {}", x, y);
             if rotated_tetri.is_valid(matrix) {
-                println!("SUCCESS");
                 success = true;
                 break;
             }
@@ -222,12 +220,28 @@ impl PlayerGame {
         self.current_tetrimino
     }
 
+    pub fn stocked_tetrimino(&self) -> TetriminoType {
+        self.stocked_tetrimino
+    }
+
+    pub fn stock_current_tetrimino(&mut self) {
+        if let Some(current_tetrimino) = self.current_tetrimino {
+            let tmp_tetrimino = self.stocked_tetrimino;
+            self.stocked_tetrimino = current_tetrimino.ttype;
+            self.change_current_tetrimino(tmp_tetrimino);
+        }
+    }
+
     pub fn current_tetrimino_mut(&mut self) -> &mut Option<Tetrimino> {
         &mut self.current_tetrimino
     }
 
     pub fn change_current_tetrimino(&mut self, ttype: TetriminoType) {
-        self.current_tetrimino = Some(Tetrimino::new(ttype));
+        if ttype == TetriminoType::None {
+            self.current_tetrimino = None;
+        } else {
+            self.current_tetrimino = Some(Tetrimino::new(ttype));
+        }
     }
 
     pub fn is_line_complete(&self, y: usize) -> bool {
@@ -248,9 +262,7 @@ impl PlayerGame {
         }
 
         for line in line_to_remove.iter().rev() {
-            println!("remove line :{}", line);
             for y in (*line as usize)..self.matrix.len() - 1 {
-                println!("{} to {}", y + 1, y);
                 self.matrix[y] = self.matrix[y + 1];
             }
             self.matrix[self.matrix.len() - 1] = [None; 10];
@@ -307,6 +319,7 @@ pub enum GameAction {
     Rotate,
     NewTetrimino,
     GetGarbage(u32),
+    StockTetrimino,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -315,4 +328,5 @@ pub enum Input {
     Right,
     FastMove,
     Rotate,
+    StockTetrimino,
 }

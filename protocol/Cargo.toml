@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0.101", features = ["derive"] }
 bincode = "1.2.0"
+rand = "0.7.2"

@@ -144,7 +144,8 @@ fn main() -> Result<(), std::io::Error> {
 
     stream.write(&ClientRequest::AskForAGame.into_bytes());
     loop {
-        match getch() {
+	let c = getch();
+        match c {
             constants::KEY_LEFT => {
                 stream.write(&ClientRequest::Input(Input::Left).into_bytes());
                 printw("LEFT");
@@ -153,7 +154,7 @@ fn main() -> Result<(), std::io::Error> {
                 stream.write(&ClientRequest::Input(Input::Right).into_bytes());
                 printw("RIGHT");
             }
-            constants::KEY_DOWN => {
+            47 => {
                 stream.write(&ClientRequest::Input(Input::FastMove).into_bytes());
                 printw("FAST");
             }
@@ -165,7 +166,13 @@ fn main() -> Result<(), std::io::Error> {
                 stream.write(&ClientRequest::Input(Input::Rotate).into_bytes());
                 printw("ROTATE");
             }
-            _ => {}
+	    constants::KEY_DOWN => {
+		stream.write(&ClientRequest::Input(Input::Acceleration).into_bytes());
+		printw("ACCELERATION");
+	    }
+	    _ => {
+		printw(&format!("{}", c));
+	    }
         };
 
         if stream.peer_addr().is_err() {

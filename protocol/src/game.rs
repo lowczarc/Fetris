@@ -1,6 +1,39 @@
+use rand::{self, Rng};
 use serde::{Deserialize, Serialize};
 
 type Matrix = [[Option<TetriminoType>; 10]; 32];
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct TetriminoBag(Vec<TetriminoType>);
+
+impl TetriminoBag {
+    pub fn new() -> Self {
+        Self(Self::reseted_list())
+    }
+
+    fn reseted_list() -> Vec<TetriminoType> {
+        vec![
+            TetriminoType::I,
+            TetriminoType::J,
+            TetriminoType::L,
+            TetriminoType::O,
+            TetriminoType::S,
+            TetriminoType::T,
+            TetriminoType::Z,
+        ]
+    }
+
+    pub fn choose_a_tetrimino(&mut self) -> TetriminoType {
+        let random = rand::thread_rng().gen_range(0, self.0.len());
+        let tetrimino = self.0.swap_remove(random);
+
+        if self.0.len() == 0 {
+            self.0 = Self::reseted_list();
+        }
+        return tetrimino;
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum TetriminoType {
     I,
@@ -199,6 +232,7 @@ pub struct PlayerGame {
     current_tetrimino: Option<Tetrimino>,
     stocked_tetrimino: TetriminoType,
     pending_tetriminos: Vec<TetriminoType>,
+    bag: TetriminoBag,
 }
 
 impl PlayerGame {
@@ -209,6 +243,7 @@ impl PlayerGame {
             current_tetrimino: None,
             stocked_tetrimino: TetriminoType::None,
             pending_tetriminos: Vec::new(),
+            bag: TetriminoBag::new(),
         }
     }
 
@@ -242,6 +277,11 @@ impl PlayerGame {
         } else {
             self.current_tetrimino = Some(Tetrimino::new(ttype));
         }
+    }
+
+    pub fn new_tetrimino(&mut self) {
+        let tetrimino = self.bag.choose_a_tetrimino();
+        self.change_current_tetrimino(tetrimino);
     }
 
     pub fn is_line_complete(&self, y: usize) -> bool {
@@ -329,4 +369,5 @@ pub enum Input {
     FastMove,
     Rotate,
     StockTetrimino,
+    Acceleration,
 }

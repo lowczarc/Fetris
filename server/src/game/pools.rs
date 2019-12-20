@@ -18,7 +18,7 @@ fn generate_pool_id() -> PoolId {
 fn tetrimino_rand() -> TetriminoType {
     match rand::thread_rng().gen_range(0, 7) {
         0 => TetriminoType::I,
-        1 => TetriminoType::J,
+        3 => TetriminoType::J,
         2 => TetriminoType::L,
         3 => TetriminoType::O,
         4 => TetriminoType::S,
@@ -32,6 +32,7 @@ pub struct PlayerInfos {
     pub player: PlayerGame,
     pub last_call: Instant,
     pub garbage_received: u32,
+    pub accelerate: bool,
 }
 
 impl PlayerInfos {
@@ -40,6 +41,7 @@ impl PlayerInfos {
             player,
             last_call: Instant::now(),
             garbage_received: 0,
+            accelerate: false,
         }
     }
 }
@@ -133,9 +135,12 @@ impl<'a> Pool<'a> {
     pub fn update(&mut self) {
         let mut garbage: Vec<(SocketAddr, u32, bool)> = Vec::new();
         for (socket, player) in self.players.iter_mut() {
-            if Instant::now().duration_since(player.last_call) < self.call_every {
+            if Instant::now().duration_since(player.last_call) < self.call_every
+                && !player.accelerate
+            {
                 continue;
             }
+
             let matrix = player.player.matrix().clone();
             if let Some(tetrimino) = player.player.current_tetrimino_mut() {
                 if tetrimino.can_move_to(&matrix, Direction::Down) {
@@ -147,7 +152,7 @@ impl<'a> Pool<'a> {
                             player.player.clone(),
                         ),
                     );
-                } else {
+                } else if (!player.accelerate) {
                     let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
                         && !tetrimino.can_move_to(&matrix, Direction::Right)
                         && !tetrimino.can_move_to(&matrix, Direction::Up);
@@ -156,11 +161,15 @@ impl<'a> Pool<'a> {
                     garbage.push((socket.clone(), row_broken.len() as u32, is_t_spin));
                 }
             } else {
-                player.player.change_current_tetrimino(tetrimino_rand());
+                player.player.new_tetrimino();
                 let _ = self.stream_list.send_to(
                     socket,
                     ServerRequest::Action(GameAction::NewTetrimino, player.player.clone()),
                 );
+            }
+
+            if player.accelerate {
+                player.accelerate = false;
             }
             player.last_call = Instant::now();
         }
@@ -250,6 +259,9 @@ impl<'a> Pool<'a> {
                     );
                     player.last_call = Instant::now();
                 }
+            }
+            Input::Acceleration => {
+                player.accelerate = true;
             }
         }
 

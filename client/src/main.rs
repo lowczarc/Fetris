@@ -2,10 +2,14 @@ use fetris_protocol::{
     game::Direction, game::Input, game::TetriminoType, ClientRequest, ServerRequest,
 };
 use ncurses::*;
+use serde::{Deserialize, Serialize};
 use std::env;
+use std::fs::File;
+use std::io::Read;
 use std::io::Write;
 use std::net::TcpStream;
-use std::{thread, time};
+use std::path::Path;
+use std::thread;
 
 const ORANGE: i16 = 55;
 
@@ -18,7 +22,51 @@ const PAIR_MAGENTA: i16 = 6;
 const PAIR_RED: i16 = 7;
 const PAIR_WHITE: i16 = 8;
 
+#[derive(Serialize, Deserialize)]
+struct Config {
+    left: String,
+    right: String,
+    rotate: String,
+    instant: String,
+    accelerate: String,
+    stock: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            left: String::from("KEY_LEFT"),
+            right: String::from("KEY_RIGHT"),
+            rotate: String::from("^J"),
+            instant: String::from("/"),
+            accelerate: String::from("KEY_DOWN"),
+            stock: String::from("KEY_UP"),
+        }
+    }
+}
+
+impl Config {
+    pub fn from_path(path: &str) -> Option<Self> {
+        let conf_path = Path::new(path);
+        let mut conf_file = if let Ok(conf_file) = File::open(conf_path) {
+            conf_file
+        } else {
+            return None;
+        };
+        let mut conf_str = String::new();
+        conf_file.read_to_string(&mut conf_str).unwrap();
+
+        Some(toml::from_str(&conf_str).unwrap())
+    }
+}
+
 fn main() -> Result<(), std::io::Error> {
+    let config = if let Some(config) = Config::from_path("config.toml") {
+        config
+    } else {
+        Config::default()
+    };
+
     if env::args().len() != 2 {
         println!("Usage: fetris server_address");
         return Ok(());
@@ -144,36 +192,34 @@ fn main() -> Result<(), std::io::Error> {
 
     stream.write(&ClientRequest::AskForAGame.into_bytes());
     loop {
-	let c = getch();
-        match c {
-            constants::KEY_LEFT => {
-                stream.write(&ClientRequest::Input(Input::Left).into_bytes());
-                printw("LEFT");
-            }
-            constants::KEY_RIGHT => {
-                stream.write(&ClientRequest::Input(Input::Right).into_bytes());
-                printw("RIGHT");
-            }
-            47 => {
-                stream.write(&ClientRequest::Input(Input::FastMove).into_bytes());
-                printw("FAST");
-            }
-            constants::KEY_UP => {
-                stream.write(&ClientRequest::Input(Input::StockTetrimino).into_bytes());
-                printw("FAST");
-            }
-            10 => {
-                stream.write(&ClientRequest::Input(Input::Rotate).into_bytes());
-                printw("ROTATE");
-            }
-	    constants::KEY_DOWN => {
-		stream.write(&ClientRequest::Input(Input::Acceleration).into_bytes());
-		printw("ACCELERATION");
-	    }
-	    _ => {
-		printw(&format!("{}", c));
-	    }
+        let c = getch();
+        let key = if let Some(key) = keyname(c) {
+            key
+        } else {
+            String::from("unknown")
         };
+
+        if key == config.left {
+            stream.write(&ClientRequest::Input(Input::Left).into_bytes());
+            printw("LEFT");
+        } else if key == config.right {
+            stream.write(&ClientRequest::Input(Input::Right).into_bytes());
+            printw("RIGHT");
+        } else if key == config.rotate {
+            stream.write(&ClientRequest::Input(Input::Rotate).into_bytes());
+            printw("ROTATE");
+        } else if key == config.instant {
+            stream.write(&ClientRequest::Input(Input::FastMove).into_bytes());
+            printw("FAST");
+        } else if key == config.accelerate {
+            stream.write(&ClientRequest::Input(Input::Acceleration).into_bytes());
+            printw("ACCELERATION");
+        } else if key == config.stock {
+            stream.write(&ClientRequest::Input(Input::StockTetrimino).into_bytes());
+            printw("FAST");
+        } else {
+            printw(&format!("{},{}", c, key));
+        }
 
         if stream.peer_addr().is_err() {
             break;

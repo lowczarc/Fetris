@@ -116,11 +116,10 @@ impl<'a> Pool<'a> {
 
         if let Some(addr) = receiver {
             let player = self.players.get_mut(&addr).unwrap();
+            let hole_position = rand::thread_rng().gen_range(0, 10);
 
             for _ in 0..garbage_to_send {
-                player
-                    .player
-                    .add_garbage(rand::thread_rng().gen_range(0, 10));
+                player.player.add_garbage(hole_position);
             }
             let _ = self.stream_list.send_to(
                 &addr,
@@ -282,4 +281,4 @@ pub enum PoolState {
     None,
 }
 
-pub const POOL_SIZE: usize = 1;
+pub const POOL_SIZE: usize = 2;

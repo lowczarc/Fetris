@@ -1,5 +1,5 @@
 use fetris_protocol::{
-    game::Direction, game::Input, game::TetriminoType, ClientRequest, ServerRequest,
+    game::Direction, game::Input, tetrimino::TetriminoType, ClientRequest, ServerRequest,
 };
 use ncurses::*;
 use serde::{Deserialize, Serialize};

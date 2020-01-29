@@ -81,7 +81,6 @@ pub fn game_main_thread(stream_list: StreamList, receiver: Receiver<NetworkPacke
                     }
                     Ok(())
                 }
-                _ => Err(()),
             } {
                 let _ = stream_list.send_to(&packet.addr, ServerRequest::BadRequest);
             }

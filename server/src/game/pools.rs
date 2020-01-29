@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
-use fetris_protocol::game::{Direction, GameAction, Input, PlayerGame, TetriminoType};
+use fetris_protocol::game::{Direction, GameAction, Input, PlayerGame};
 use fetris_protocol::ServerRequest;
 
 use crate::game::players::Player;
@@ -13,19 +13,6 @@ pub type PoolId = Instant;
 
 fn generate_pool_id() -> PoolId {
     Instant::now()
-}
-
-fn tetrimino_rand() -> TetriminoType {
-    match rand::thread_rng().gen_range(0, 7) {
-        0 => TetriminoType::I,
-        3 => TetriminoType::J,
-        2 => TetriminoType::L,
-        3 => TetriminoType::O,
-        4 => TetriminoType::S,
-        5 => TetriminoType::T,
-        6 => TetriminoType::Z,
-        _ => TetriminoType::None,
-    }
 }
 
 pub struct PlayerInfos {
@@ -151,7 +138,7 @@ impl<'a> Pool<'a> {
                             player.player.clone(),
                         ),
                     );
-                } else if (!player.accelerate) {
+                } else if !player.accelerate {
                     let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
                         && !tetrimino.can_move_to(&matrix, Direction::Right)
                         && !tetrimino.can_move_to(&matrix, Direction::Up);

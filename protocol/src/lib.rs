@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::io::Read;
 
 pub mod game;
+pub mod rotation_tetrimino;
+pub mod tetrimino;
+pub mod tetrimino_bag;
 
 pub type DeserializeError = bincode::Error;
 

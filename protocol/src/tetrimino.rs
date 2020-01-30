@@ -59,7 +59,7 @@ impl TetriminoType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct Tetrimino {
     ttype: TetriminoType,
     rotation: u8,
@@ -130,7 +130,7 @@ impl Tetrimino {
             && tetri_shape[tetri_x as usize][tetri_y as usize]
     }
 
-    fn is_valid(&self, matrix: &Matrix) -> bool {
+    pub fn is_valid(&self, matrix: &Matrix) -> bool {
         let tetri_shape = self.to_blocks();
 
         for x in 0..tetri_shape.len() {

@@ -104,7 +104,10 @@ fn print_tetrimino_at(tetrimino: TetriminoType, x: u16, y: u16) {
                 TetriminoType::Z => color::Red.bg_str().to_string(),
                 _ => unreachable!(),
             };
-            if i < tetrimino.to_blocks().len() && j < tetrimino.to_blocks().len() && tetrimino.to_blocks()[i][j] {
+            if i < tetrimino.to_blocks().len()
+                && j < tetrimino.to_blocks().len()
+                && tetrimino.to_blocks()[i][j]
+            {
                 print!("{}  {}", color, color::Bg(color::Reset));
             } else {
                 print!("  ");
@@ -139,7 +142,17 @@ fn main() -> Result<(), std::io::Error> {
         );
         loop {
             if let Ok(request) = ServerRequest::from_reader(&reader) {
-                print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::UntilNewline);
+                if request == ServerRequest::GameOver {
+                    println!("{}-------------", termion::cursor::Goto(4, 12));
+                    println!("{}| Game Over |", termion::cursor::Goto(4, 13));
+                    println!("{}-------------", termion::cursor::Goto(4, 14));
+                    loop {}
+                }
+                print!(
+                    "{}{}",
+                    termion::cursor::Goto(1, 1),
+                    termion::clear::UntilNewline
+                );
                 if let ServerRequest::Action(_, game) = request {
                     let matrix = game.matrix();
                     let tetrimino = game.current_tetrimino();
@@ -208,7 +221,6 @@ fn main() -> Result<(), std::io::Error> {
                 break;
             }
         }
-        println!("Invalid package");
         reader.shutdown(std::net::Shutdown::Both).unwrap();
     });
 
@@ -220,12 +232,13 @@ fn main() -> Result<(), std::io::Error> {
         let c = c.unwrap();
         if c == Key::Ctrl('c') {
             println!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All);
+            stream.shutdown(std::net::Shutdown::Both).unwrap();
             break;
         }
         if let Some(input) = config.get(&c) {
             if stream
                 .write(&ClientRequest::Input(*input).into_bytes())
-                    .is_err()
+                .is_err()
             {
                 break;
             }

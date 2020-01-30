@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::tetrimino::TetriminoType;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TetriminoBag(Vec<TetriminoType>);
 
 impl TetriminoBag {

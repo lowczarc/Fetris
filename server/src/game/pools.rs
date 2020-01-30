@@ -20,6 +20,7 @@ pub struct PlayerInfos {
     pub last_call: Instant,
     pub garbage_received: u32,
     pub accelerate: bool,
+    pub dead: bool,
 }
 
 impl PlayerInfos {
@@ -29,6 +30,7 @@ impl PlayerInfos {
             last_call: Instant::now(),
             garbage_received: 0,
             accelerate: false,
+            dead: false,
         }
     }
 }
@@ -87,7 +89,7 @@ impl<'a> Pool<'a> {
         let mut last_receiver_garbage = 0;
 
         for (addr, player) in self.players.iter() {
-            if addr == sender {
+            if addr == sender || player.dead {
                 continue;
             }
             if receiver.is_none() || last_receiver_garbage > player.garbage_received {
@@ -105,6 +107,7 @@ impl<'a> Pool<'a> {
             let player = self.players.get_mut(&addr).unwrap();
             let hole_position = rand::thread_rng().gen_range(0, 10);
 
+            player.garbage_received += garbage_to_send;
             for _ in 0..garbage_to_send {
                 player.player.add_garbage(hole_position);
             }
@@ -121,8 +124,9 @@ impl<'a> Pool<'a> {
     pub fn update(&mut self) {
         let mut garbage: Vec<(SocketAddr, u32, bool)> = Vec::new();
         for (socket, player) in self.players.iter_mut() {
-            if Instant::now().duration_since(player.last_call) < self.call_every
-                && !player.accelerate
+            if player.dead
+                || (Instant::now().duration_since(player.last_call) < self.call_every
+                    && !player.accelerate)
             {
                 continue;
             }
@@ -148,10 +152,16 @@ impl<'a> Pool<'a> {
                 }
             } else {
                 player.player.new_tetrimino();
-                let _ = self.stream_list.send_to(
-                    socket,
-                    ServerRequest::Action(GameAction::NewTetrimino, player.player.clone()),
-                );
+                if !player.player.current_tetrimino().unwrap().is_valid(&matrix) {
+                    player.dead = true;
+                    let _ = self.stream_list.send_to(socket, ServerRequest::GameOver);
+                    println!("{} is dead", socket);
+                } else {
+                    let _ = self.stream_list.send_to(
+                        socket,
+                        ServerRequest::Action(GameAction::NewTetrimino, player.player.clone()),
+                    );
+                }
             }
 
             if player.accelerate {
@@ -167,6 +177,9 @@ impl<'a> Pool<'a> {
     pub fn handle_player_input(&mut self, socket: &SocketAddr, input: Input) {
         let mut garbage: Option<(SocketAddr, u32, bool)> = None;
         let player = self.players.get_mut(socket).unwrap();
+        if player.dead {
+            return;
+        }
         match input {
             Input::Left => {
                 let matrix = player.player.matrix().clone();

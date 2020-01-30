@@ -15,11 +15,12 @@ pub enum ClientRequest {
     Input(game::Input),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum ServerRequest {
     BadRequest,
     GameReady(game::PlayerGame),
     Action(game::GameAction, game::PlayerGame),
+    GameOver,
     Message(String, String),
 }
 

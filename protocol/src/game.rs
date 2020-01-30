@@ -7,7 +7,7 @@ use crate::{
 
 pub type Matrix = [[Option<TetriminoType>; 10]; 32];
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PlayerGame {
     name: String,
     matrix: Matrix,
@@ -142,7 +142,7 @@ impl PlayerGame {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Direction {
     Left,
     Right,
@@ -151,7 +151,7 @@ pub enum Direction {
     FastDown,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum GameAction {
     MoveCurrentTetrimino(Direction),
     Rotate,
@@ -160,7 +160,7 @@ pub enum GameAction {
     StockTetrimino,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum Input {
     Left,
     Right,

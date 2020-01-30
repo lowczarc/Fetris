@@ -90,6 +90,29 @@ impl Config {
     }
 }
 
+fn print_tetrimino_at(tetrimino: TetriminoType, x: u16, y: u16) {
+    for j in 0..2 {
+        print!("{}  ", termion::cursor::Goto(x, j as u16 + y));
+        for i in 0..4 {
+            let color = match tetrimino {
+                TetriminoType::I => color::Cyan.bg_str().to_string(),
+                TetriminoType::J => color::Blue.bg_str().to_string(),
+                TetriminoType::L => color::Rgb(255, 173, 0).bg_string(),
+                TetriminoType::O => color::Yellow.bg_str().to_string(),
+                TetriminoType::S => color::Green.bg_str().to_string(),
+                TetriminoType::T => color::Magenta.bg_str().to_string(),
+                TetriminoType::Z => color::Red.bg_str().to_string(),
+                _ => unreachable!(),
+            };
+            if i < tetrimino.to_blocks().len() && j < tetrimino.to_blocks().len() && tetrimino.to_blocks()[i][j] {
+                print!("{}  {}", color, color::Bg(color::Reset));
+            } else {
+                print!("  ");
+            }
+        }
+    }
+}
+
 fn main() -> Result<(), std::io::Error> {
     let config = if let Some(config) = Config::from_path("config.toml") {
         config
@@ -116,11 +139,7 @@ fn main() -> Result<(), std::io::Error> {
         );
         loop {
             if let Ok(request) = ServerRequest::from_reader(&reader) {
-                print!(
-                    "{}{}",
-                    termion::cursor::Goto(1, 1),
-                    termion::clear::UntilNewline
-                );
+                print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::UntilNewline);
                 if let ServerRequest::Action(_, game) = request {
                     let matrix = game.matrix();
                     let tetrimino = game.current_tetrimino();
@@ -136,7 +155,10 @@ fn main() -> Result<(), std::io::Error> {
                             None
                         };
 
+                    print!("{}_____________________", termion::cursor::Goto(1, 2));
+                    print!("{}▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔", termion::cursor::Goto(1, 25));
                     for j in 0..22 {
+                        print!("{}", termion::cursor::Goto(1, j as u16 + 3));
                         let y = 21 - j;
                         for x in 0..10 {
                             if matrix[y][x] != None
@@ -168,31 +190,17 @@ fn main() -> Result<(), std::io::Error> {
                                 print!("  ");
                             }
                         }
-                        print!("|{}", termion::cursor::Goto(1, j as u16 + 2));
+                        print!("|");
                     }
-                    print!("{}{:?}", termion::clear::UntilNewline, pending_tetriminos);
+                    print!("{}  Hold:", termion::cursor::Goto(23, 1));
                     if stocked_tetrimino != TetriminoType::None {
-                        for y in 0..stocked_tetrimino.to_blocks().len() {
-                            print!("{}| ", termion::cursor::Goto(22, y as u16 + 1));
-                            for x in 0..stocked_tetrimino.to_blocks().len() {
-                                let color = match stocked_tetrimino {
-                                    TetriminoType::I => color::Cyan.bg_str().to_string(),
-                                    TetriminoType::J => color::Blue.bg_str().to_string(),
-                                    TetriminoType::L => color::Rgb(255, 173, 0).bg_string(),
-                                    TetriminoType::O => color::Yellow.bg_str().to_string(),
-                                    TetriminoType::S => color::Green.bg_str().to_string(),
-                                    TetriminoType::T => color::Magenta.bg_str().to_string(),
-                                    TetriminoType::Z => color::Red.bg_str().to_string(),
-                                    _ => unreachable!(),
-                                };
-                                if stocked_tetrimino.to_blocks()[x][y] {
-                                    print!("{}  {}", color, color::Bg(color::Reset));
-                                } else {
-                                    print!("  ");
-                                }
-                            }
-                            print!(" |   ");
-                        }
+                        print_tetrimino_at(stocked_tetrimino, 23, 3);
+                    }
+                    print!("{}  Next:", termion::cursor::Goto(23, 6));
+                    for i in 0..pending_tetriminos.len() {
+                        let j = pending_tetriminos.len() - 1 - i;
+
+                        print_tetrimino_at(pending_tetriminos[j], 23, 8 + (3 * i as u16));
                     }
                     println!("");
                 }
@@ -217,7 +225,7 @@ fn main() -> Result<(), std::io::Error> {
         if let Some(input) = config.get(&c) {
             if stream
                 .write(&ClientRequest::Input(*input).into_bytes())
-                .is_err()
+                    .is_err()
             {
                 break;
             }

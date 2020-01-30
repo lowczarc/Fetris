@@ -19,13 +19,22 @@ pub struct PlayerGame {
 
 impl PlayerGame {
     pub fn new(name: String) -> Self {
+        let mut bag = TetriminoBag::new();
+        let pending_tetriminos = vec![
+            bag.choose_a_tetrimino(),
+            bag.choose_a_tetrimino(),
+            bag.choose_a_tetrimino(),
+            bag.choose_a_tetrimino(),
+            bag.choose_a_tetrimino(),
+            bag.choose_a_tetrimino(),
+        ];
         Self {
             name,
             matrix: [[None; 10]; 32],
             current_tetrimino: None,
             stocked_tetrimino: TetriminoType::None,
-            pending_tetriminos: Vec::new(),
-            bag: TetriminoBag::new(),
+            pending_tetriminos,
+            bag,
         }
     }
 
@@ -39,6 +48,10 @@ impl PlayerGame {
 
     pub fn stocked_tetrimino(&self) -> TetriminoType {
         self.stocked_tetrimino
+    }
+
+    pub fn pending_tetriminos(&self) -> Vec<TetriminoType> {
+        self.pending_tetriminos.clone()
     }
 
     pub fn stock_current_tetrimino(&mut self) {
@@ -62,7 +75,9 @@ impl PlayerGame {
     }
 
     pub fn new_tetrimino(&mut self) {
-        let tetrimino = self.bag.choose_a_tetrimino();
+        let tetrimino = self.pending_tetriminos.pop().unwrap();
+        self.pending_tetriminos
+            .insert(0, self.bag.choose_a_tetrimino());
         self.change_current_tetrimino(tetrimino);
     }
 

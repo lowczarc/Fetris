@@ -125,6 +125,7 @@ fn main() -> Result<(), std::io::Error> {
                     let matrix = game.matrix();
                     let tetrimino = game.current_tetrimino();
                     let stocked_tetrimino = game.stocked_tetrimino();
+                    let pending_tetriminos = game.pending_tetriminos();
                     let prediction =
                         if let Some(mut tetrimino_prediction) = game.current_tetrimino().clone() {
                             while tetrimino_prediction.can_move_to(&matrix, Direction::Down) {
@@ -169,7 +170,7 @@ fn main() -> Result<(), std::io::Error> {
                         }
                         print!("|{}", termion::cursor::Goto(1, j as u16 + 2));
                     }
-                    print!("{}{:?}", termion::clear::UntilNewline, tetrimino);
+                    print!("{}{:?}", termion::clear::UntilNewline, pending_tetriminos);
                     if stocked_tetrimino != TetriminoType::None {
                         for y in 0..stocked_tetrimino.to_blocks().len() {
                             print!("{}| ", termion::cursor::Goto(22, y as u16 + 1));

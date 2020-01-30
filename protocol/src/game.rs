@@ -8,6 +8,12 @@ use crate::{
 pub type Matrix = [[Option<TetriminoType>; 10]; 32];
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PlayerMinimalInfos {
+    pub name: String,
+    pub dead: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PlayerGame {
     name: String,
     matrix: Matrix,
@@ -38,6 +44,9 @@ impl PlayerGame {
         }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
     pub fn matrix(&self) -> &Matrix {
         &self.matrix
     }

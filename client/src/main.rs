@@ -1,5 +1,6 @@
 use fetris_protocol::{
-    game::Direction, game::Input, tetrimino::TetriminoType, ClientRequest, ServerRequest,
+    game::Direction, game::Input, game::PlayerMinimalInfos, tetrimino::TetriminoType,
+    ClientRequest, ServerRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -116,6 +117,21 @@ fn print_tetrimino_at(tetrimino: TetriminoType, x: u16, y: u16) {
     }
 }
 
+fn print_other_player(other_players: Vec<PlayerMinimalInfos>, x: u16, y: u16) {
+    for i in 0..other_players.len() {
+        print!(
+            "{}{}{}",
+            termion::cursor::Goto(x, i as u16 * 2 + y),
+            if other_players[i].dead {
+                color::Red.fg_str()
+            } else {
+                color::White.fg_str()
+            },
+            other_players[i].name
+        );
+    }
+}
+
 fn main() -> Result<(), std::io::Error> {
     let config = if let Some(config) = Config::from_path("config.toml") {
         config
@@ -153,7 +169,7 @@ fn main() -> Result<(), std::io::Error> {
                     termion::cursor::Goto(1, 1),
                     termion::clear::UntilNewline
                 );
-                if let ServerRequest::Action(_, game) = request {
+                if let ServerRequest::Action(_, game, other_players) = request {
                     let matrix = game.matrix();
                     let tetrimino = game.current_tetrimino();
                     let stocked_tetrimino = game.stocked_tetrimino();
@@ -215,6 +231,7 @@ fn main() -> Result<(), std::io::Error> {
 
                         print_tetrimino_at(pending_tetriminos[j], 23, 8 + (3 * i as u16));
                     }
+                    print_other_player(other_players, 40, 1);
                     println!("");
                 }
             } else {

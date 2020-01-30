@@ -19,7 +19,11 @@ pub enum ClientRequest {
 pub enum ServerRequest {
     BadRequest,
     GameReady(game::PlayerGame),
-    Action(game::GameAction, game::PlayerGame),
+    Action(
+        game::GameAction,
+        game::PlayerGame,
+        Vec<game::PlayerMinimalInfos>,
+    ),
     GameOver,
     Message(String, String),
 }

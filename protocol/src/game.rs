@@ -145,7 +145,7 @@ pub enum GameAction {
     StockTetrimino,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Input {
     Left,
     Right,

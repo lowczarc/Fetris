@@ -1,19 +1,19 @@
 use fetris_protocol::{
     game::Direction, game::Input, tetrimino::TetriminoType, ClientRequest, ServerRequest,
 };
-// use ncurses::*;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::env;
+use std::fs::File;
+use std::io::{stdin, stdout, Read, Write};
+use std::net::TcpStream;
+use std::path::Path;
+use std::thread;
 use termion;
 use termion::color;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-use serde::{Deserialize, Serialize};
-use std::env;
-use std::fs::File;
-use std::io::{ Read, Write, stdin, stdout };
-use std::net::TcpStream;
-use std::path::Path;
-use std::thread;
 
 #[derive(Serialize, Deserialize)]
 struct Config {
@@ -28,13 +28,50 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            left: String::from("KEY_LEFT"),
-            right: String::from("KEY_RIGHT"),
-            rotate: String::from("^J"),
+            left: String::from("Left"),
+            right: String::from("Right"),
+            rotate: String::from("Enter"),
             instant: String::from("/"),
-            accelerate: String::from("KEY_DOWN"),
-            stock: String::from("KEY_UP"),
+            accelerate: String::from("Down"),
+            stock: String::from("Up"),
         }
+    }
+}
+
+impl Config {
+    fn parse_key(config_key: &str) -> Key {
+        match config_key {
+            "Left" => Key::Left,
+            "Right" => Key::Right,
+            "Down" => Key::Down,
+            "Up" => Key::Up,
+            "Backspace" => Key::Backspace,
+            "Enter" => Key::Char('\n'),
+            "Space" => Key::Char(' '),
+            "Home" => Key::Home,
+            "End" => Key::End,
+            "PageUp" => Key::PageUp,
+            "PageDown" => Key::PageDown,
+            "BackTab" => Key::BackTab,
+            "Delete" => Key::Delete,
+            "Insert" => Key::Insert,
+            "Esc" => Key::Esc,
+            x if x.len() == 1 => Key::Char(x.chars().next().unwrap()),
+            x => panic!(format!("Invalid key in config file: '{}'", x)),
+        }
+    }
+
+    fn to_hashmap(&self) -> HashMap<Key, Input> {
+        let mut ret = HashMap::new();
+
+        ret.insert(Self::parse_key(&self.left), Input::Left);
+        ret.insert(Self::parse_key(&self.right), Input::Right);
+        ret.insert(Self::parse_key(&self.rotate), Input::Rotate);
+        ret.insert(Self::parse_key(&self.instant), Input::FastMove);
+        ret.insert(Self::parse_key(&self.accelerate), Input::Acceleration);
+        ret.insert(Self::parse_key(&self.stock), Input::StockTetrimino);
+
+        ret
     }
 }
 
@@ -59,16 +96,15 @@ fn main() -> Result<(), std::io::Error> {
     } else {
         Config::default()
     };
+    let config = config.to_hashmap();
 
     if env::args().len() != 2 {
         println!("Usage: fetris server_address");
         return Ok(());
     }
-    
-    // It seems like an unused variable but it actually isn't
-    let _hide_cursor = termion::cursor::HideCursor::from(stdout());
 
-    let mut stdout = stdout().into_raw_mode().unwrap();
+    let _stdout = stdout().into_raw_mode().unwrap();
+    let _hide_cursor = termion::cursor::HideCursor::from(stdout());
 
     let mut stream = TcpStream::connect(env::args().nth(1).unwrap())?;
     let reader = stream.try_clone().unwrap();
@@ -80,7 +116,11 @@ fn main() -> Result<(), std::io::Error> {
         );
         loop {
             if let Ok(request) = ServerRequest::from_reader(&reader) {
-                print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::UntilNewline);
+                print!(
+                    "{}{}",
+                    termion::cursor::Goto(1, 1),
+                    termion::clear::UntilNewline
+                );
                 if let ServerRequest::Action(_, game) = request {
                     let matrix = game.matrix();
                     let tetrimino = game.current_tetrimino();
@@ -129,10 +169,7 @@ fn main() -> Result<(), std::io::Error> {
                         }
                         print!("|{}", termion::cursor::Goto(1, j as u16 + 2));
                     }
-                    print!(
-                        "{}{:?}",
-                        termion::clear::UntilNewline,
-                        tetrimino);
+                    print!("{}{:?}", termion::clear::UntilNewline, tetrimino);
                     if stocked_tetrimino != TetriminoType::None {
                         for y in 0..stocked_tetrimino.to_blocks().len() {
                             print!("{}| ", termion::cursor::Goto(22, y as u16 + 1));
@@ -163,69 +200,27 @@ fn main() -> Result<(), std::io::Error> {
             }
         }
         println!("Invalid package");
-        reader.shutdown(std::net::Shutdown::Both);
+        reader.shutdown(std::net::Shutdown::Both).unwrap();
     });
 
-    stream.write(&ClientRequest::AskForAGame.into_bytes());
+    stream
+        .write(&ClientRequest::AskForAGame.into_bytes())
+        .unwrap();
     let stdin = stdin();
     for c in stdin.keys() {
-        /*
-        let key = if let Some(key) = keyname(c) {
-            key
-        } else {
-            String::from("unknown")
-        };
-            */
-
-        match c.unwrap() {
-            Key::Char('q') => {
-                println!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All);
+        let c = c.unwrap();
+        if c == Key::Ctrl('c') {
+            println!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All);
+            break;
+        }
+        if let Some(input) = config.get(&c) {
+            if stream
+                .write(&ClientRequest::Input(*input).into_bytes())
+                .is_err()
+            {
                 break;
             }
-            Key::Char('/') => {
-                stream.write(&ClientRequest::Input(Input::FastMove).into_bytes());
-            }
-            Key::Up => {
-                stream.write(&ClientRequest::Input(Input::StockTetrimino).into_bytes());
-            }
-            Key::Down => {
-                stream.write(&ClientRequest::Input(Input::Acceleration).into_bytes());
-            }
-            Key::Left => {
-                stream.write(&ClientRequest::Input(Input::Left).into_bytes());
-            }
-            Key::Right => {
-                stream.write(&ClientRequest::Input(Input::Right).into_bytes());
-            }
-            Key::Char('\n') => {
-            stream.write(&ClientRequest::Input(Input::Rotate).into_bytes());
-            }
-            _ => {}
         }
-        /*
-        if key == config.left {
-            stream.write(&ClientRequest::Input(Input::Left).into_bytes());
-            // printw("LEFT");
-        } else if key == config.right {
-            stream.write(&ClientRequest::Input(Input::Right).into_bytes());
-            // printw("RIGHT");
-        } else if key == config.rotate {
-            stream.write(&ClientRequest::Input(Input::Rotate).into_bytes());
-            // printw("ROTATE");
-        } else if key == config.instant {
-            stream.write(&ClientRequest::Input(Input::FastMove).into_bytes());
-            // printw("FAST");
-        } else if key == config.accelerate {
-            stream.write(&ClientRequest::Input(Input::Acceleration).into_bytes());
-            // printw("ACCELERATION");
-        } else if key == config.stock {
-            stream.write(&ClientRequest::Input(Input::StockTetrimino).into_bytes());
-            // printw("FAST");
-        } else {
-            // printw(&format!("{},{}", c, key));
-        }
-
-        */
         if stream.peer_addr().is_err() {
             break;
         }

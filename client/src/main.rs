@@ -120,14 +120,15 @@ fn print_tetrimino_at(tetrimino: TetriminoType, x: u16, y: u16) {
 fn print_other_player(other_players: Vec<PlayerMinimalInfos>, x: u16, y: u16) {
     for i in 0..other_players.len() {
         print!(
-            "{}{}{}",
+            "{}{}{}{}",
             termion::cursor::Goto(x, i as u16 * 2 + y),
             if other_players[i].dead {
                 color::Red.fg_str()
             } else {
                 color::White.fg_str()
             },
-            other_players[i].name
+            other_players[i].name,
+            color::Fg(color::Reset),
         );
     }
 }
@@ -145,10 +146,11 @@ fn main() -> Result<(), std::io::Error> {
         return Ok(());
     }
 
+    let mut stream = TcpStream::connect(env::args().nth(1).unwrap())?;
+
     let _stdout = stdout().into_raw_mode().unwrap();
     let _hide_cursor = termion::cursor::HideCursor::from(stdout());
 
-    let mut stream = TcpStream::connect(env::args().nth(1).unwrap())?;
     let reader = stream.try_clone().unwrap();
     thread::spawn(move || {
         println!(
@@ -164,11 +166,7 @@ fn main() -> Result<(), std::io::Error> {
                     println!("{}-------------", termion::cursor::Goto(4, 14));
                     loop {}
                 }
-                print!(
-                    "{}{}",
-                    termion::cursor::Goto(1, 1),
-                    termion::clear::UntilNewline
-                );
+                print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All,);
                 if let ServerRequest::Action(_, game, other_players) = request {
                     let matrix = game.matrix();
                     let tetrimino = game.current_tetrimino();

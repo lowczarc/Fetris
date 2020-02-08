@@ -310,5 +310,3 @@ pub enum PoolState {
     PendingPool,
     None,
 }
-
-pub const POOL_SIZE: usize = 2;

@@ -10,7 +10,11 @@ use crate::game::players::Player;
 use crate::game::pools::{self, Pool, PoolId, PoolState};
 use crate::network::{NetworkAction, NetworkPacket, StreamList};
 
-pub fn game_main_thread(stream_list: StreamList, receiver: Receiver<NetworkPacket>) {
+pub struct Options {
+    pub pool_size: u16
+}
+
+pub fn game_main_thread(stream_list: StreamList, receiver: Receiver<NetworkPacket>, options: Options) {
     let mut players: HashMap<SocketAddr, Player> = HashMap::new();
     let mut pools: HashMap<PoolId, Pool> = HashMap::new();
     let mut pending_pool: HashMap<SocketAddr, ()> = HashMap::new();
@@ -63,7 +67,7 @@ pub fn game_main_thread(stream_list: StreamList, receiver: Receiver<NetworkPacke
                     } else {
                         player.change_pool(PoolState::PendingPool);
                         pending_pool.insert(packet.addr, ());
-                        if pending_pool.len() == pools::POOL_SIZE {
+                        if pending_pool.len() == options.pool_size as usize {
                             let (id, pool) = Pool::create(&mut players, &stream_list, pending_pool);
                             pools.insert(id, pool);
                             pending_pool = HashMap::new();

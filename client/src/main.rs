@@ -11,6 +11,7 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time;
 use termion;
 use termion::color;
 use termion::event::Key;
@@ -108,7 +109,7 @@ fn print_tetrimino_at(tetrimino: TetriminoType, x: u16, y: u16) {
             };
             if i < tetrimino.to_blocks().len()
                 && j < tetrimino.to_blocks().len()
-                && tetrimino.to_blocks()[i][j]
+                    && tetrimino.to_blocks()[i][j]
             {
                 print!("{}  {}", color, color::Bg(color::Reset));
             } else {
@@ -190,6 +191,7 @@ fn print_game(game: &PlayerGame) {
     for i in 0..pending_tetriminos.len() {
         let j = pending_tetriminos.len() - 1 - i;
 
+        use std::time;
         print_tetrimino_at(pending_tetriminos[j], 23, 8 + (3 * i as u16));
     }
 }
@@ -233,6 +235,9 @@ fn main() -> Result<(), std::io::Error> {
     let _stdout = stdout().into_raw_mode().unwrap();
     let game: Arc<Mutex<Option<PlayerGame>>> = Arc::new(Mutex::new(None));
     let game_board = game.clone();
+    let printable_game: Arc<Mutex<Option<PlayerGame>>> = Arc::new(Mutex::new(None));
+    let printable_game_request_listener = printable_game.clone();
+    let printable_game_keyboard_listener = printable_game.clone();
 
     thread::spawn(move || {
         let mut other_players = Vec::new();
@@ -247,37 +252,53 @@ fn main() -> Result<(), std::io::Error> {
             } else {
                 panic!("Invalid first server request");
             };
-        {
-            let mut board = game_board.lock().unwrap();
-            *board = Some(game);
-        }
-
-        loop {
-            if let Ok(request) = ServerRequest::from_reader(&reader) {
-                if request == ServerRequest::GameOver {
-                    let mut board = game_board.lock().unwrap();
-                    *board = None;
-                    println!("{}-------------", termion::cursor::Goto(4, 12));
-                    println!("{}| Game Over |", termion::cursor::Goto(4, 13));
-                    println!("{}-------------", termion::cursor::Goto(4, 14));
-                    loop {}
-                }
-                match request {
-                    ServerRequest::PlayerListUpdate(other_players_new) => {
-                        other_players = other_players_new;
-                    }
-                    ServerRequest::MinifiedAction(action) => {
-                        let mut board = game_board.lock().unwrap();
-                        actions::apply_action(board.as_mut().unwrap(), action);
-                        print_interface(board.as_mut().unwrap(), &other_players);
-                    }
-                    _ => {}
-                }
-            } else {
-                break;
+            {
+                let mut board = game_board.lock().unwrap();
+                *board = Some(game);
             }
-        }
-        reader.shutdown(std::net::Shutdown::Both).unwrap();
+
+            thread::spawn(move || {
+                loop {
+                    {
+                        let board = printable_game.lock().unwrap();
+                        if let Some(board) = board.as_ref() { 
+                            print_interface(board, &[]);
+                        }
+                    }
+                    thread::sleep(time::Duration::from_millis(30));
+                }
+            });
+
+            loop {
+                if let Ok(request) = ServerRequest::from_reader(&reader) {
+                    if request == ServerRequest::GameOver {
+                        let mut board = game_board.lock().unwrap();
+                        *board = None;
+                        let printable_board = printable_game_request_listener.lock().unwrap();
+                        println!("{}-------------", termion::cursor::Goto(4, 12));
+                        println!("{}| Game Over |", termion::cursor::Goto(4, 13));
+                        println!("{}-------------", termion::cursor::Goto(4, 14));
+                        loop {
+                            thread::sleep(time::Duration::from_secs(1));
+                        }
+                    }
+                    match request {
+                        ServerRequest::PlayerListUpdate(other_players_new) => {
+                            other_players = other_players_new;
+                        }
+                        ServerRequest::MinifiedAction(action) => {
+                            let mut board = game_board.lock().unwrap();
+                            actions::apply_action(board.as_mut().unwrap(), action);
+                            let mut printable_board = printable_game_request_listener.lock().unwrap();
+                            *printable_board = board.clone();
+                        }
+                        _ => {}
+                    }
+                } else {
+                    break;
+                }
+            }
+            reader.shutdown(std::net::Shutdown::Both).unwrap();
     });
 
     stream
@@ -292,19 +313,18 @@ fn main() -> Result<(), std::io::Error> {
             break;
         }
         if let Some(input) = config.get(&c) {
-            let board = game.lock().unwrap();
-            if let Some(game_board) = &*board {
-                let mut game_board_prediction = game_board.clone();
-
-                actions::apply_action(&mut game_board_prediction, input_to_action(*input));
-                print_interface(&game_board_prediction, &[]);
+                {
+                    let mut printable_board = printable_game_keyboard_listener.lock().unwrap();
+                    let mut game_board_prediction = printable_board.clone();
+                    actions::apply_action(game_board_prediction.as_mut().unwrap(), input_to_action(*input));
+                    *printable_board = game_board_prediction;
+                }
                 if stream
                     .write(&ClientRequest::Input(*input).into_bytes())
-                    .is_err()
+                        .is_err()
                 {
                     break;
                 }
-            }
         }
         if stream.peer_addr().is_err() {
             break;

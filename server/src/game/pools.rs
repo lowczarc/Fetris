@@ -58,14 +58,15 @@ impl<'a> Pool<'a> {
             player.change_pool(PoolState::Pool(id));
         }
 
-        (
-            id,
-            Self {
-                players: pool_players,
-                stream_list,
-                call_every: Duration::from_millis(500),
-            },
-        )
+        let pool = Self {
+            players: pool_players,
+            stream_list,
+            call_every: Duration::from_millis(500),
+        };
+
+        stream_list.send_to_all(ServerRequest::PlayerListUpdate(pool.user_list()));
+
+        (id, pool)
     }
 
     pub fn remove_user(&mut self, socket: &SocketAddr) {
@@ -83,7 +84,6 @@ impl<'a> Pool<'a> {
     }
 
     pub fn send_garbage(&mut self, sender: &SocketAddr, row_broken: u32, is_t_spin: bool) {
-        let player_list = self.user_list();
         let garbage_to_send = match (is_t_spin, row_broken) {
             (false, 2) => 1,
             (false, 3) => 2,
@@ -124,18 +124,17 @@ impl<'a> Pool<'a> {
             }
             let _ = self.stream_list.send_to(
                 &addr,
-                ServerRequest::Action(
-                    GameAction::GetGarbage(garbage_to_send),
-                    player.player.clone(),
-                    player_list.clone(),
-                ),
+                ServerRequest::MinifiedAction(GameAction::GetGarbage(
+                    garbage_to_send,
+                    hole_position,
+                )),
             );
         }
     }
 
     pub fn update(&mut self) {
         let mut garbage: Vec<(SocketAddr, u32, bool)> = Vec::new();
-        let player_list = self.user_list();
+        let user_list = self.user_list();
         for (socket, player) in self.players.iter_mut() {
             if player.dead
                 || (Instant::now().duration_since(player.last_call) < self.call_every
@@ -150,11 +149,9 @@ impl<'a> Pool<'a> {
                     tetrimino.apply_direction(Direction::Down);
                     let _ = self.stream_list.send_to(
                         socket,
-                        ServerRequest::Action(
-                            GameAction::MoveCurrentTetrimino(Direction::Down),
-                            player.player.clone(),
-                            player_list.clone(),
-                        ),
+                        ServerRequest::MinifiedAction(GameAction::MoveCurrentTetrimino(
+                            Direction::Down,
+                        )),
                     );
                 } else if !player.accelerate {
                     let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
@@ -163,21 +160,23 @@ impl<'a> Pool<'a> {
                     let row_broken = player.player.place_current_tetrimino();
 
                     garbage.push((socket.clone(), row_broken.len() as u32, is_t_spin));
+                    let _ = self.stream_list.send_to(
+                        &socket,
+                        ServerRequest::MinifiedAction(GameAction::PlaceCurrentTetrimino),
+                    );
                 }
             } else {
-                player.player.new_tetrimino();
+                let added_tetrimino = player.player.new_tetrimino();
                 if !player.player.current_tetrimino().unwrap().is_valid(&matrix) {
                     player.dead = true;
                     let _ = self.stream_list.send_to(socket, ServerRequest::GameOver);
+                    self.stream_list
+                        .send_to_all(ServerRequest::PlayerListUpdate(user_list.clone()));
                     println!("{} is dead", socket);
                 } else {
                     let _ = self.stream_list.send_to(
                         socket,
-                        ServerRequest::Action(
-                            GameAction::NewTetrimino,
-                            player.player.clone(),
-                            player_list.clone(),
-                        ),
+                        ServerRequest::MinifiedAction(GameAction::NewTetrimino(added_tetrimino)),
                     );
                 }
             }
@@ -194,7 +193,6 @@ impl<'a> Pool<'a> {
 
     pub fn handle_player_input(&mut self, socket: &SocketAddr, input: Input) {
         let mut garbage: Option<(SocketAddr, u32, bool)> = None;
-        let player_list = self.user_list();
         let player = self.players.get_mut(socket).unwrap();
         if player.dead {
             return;
@@ -207,11 +205,9 @@ impl<'a> Pool<'a> {
                         tetrimino.apply_direction(Direction::Left);
                         let _ = self.stream_list.send_to(
                             &socket,
-                            ServerRequest::Action(
-                                GameAction::MoveCurrentTetrimino(Direction::Left),
-                                player.player.clone(),
-                                player_list.clone(),
-                            ),
+                            ServerRequest::MinifiedAction(GameAction::MoveCurrentTetrimino(
+                                Direction::Left,
+                            )),
                         );
                     }
                     player.last_call = Instant::now();
@@ -224,11 +220,9 @@ impl<'a> Pool<'a> {
                         tetrimino.apply_direction(Direction::Right);
                         let _ = self.stream_list.send_to(
                             &socket,
-                            ServerRequest::Action(
-                                GameAction::MoveCurrentTetrimino(Direction::Right),
-                                player.player.clone(),
-                                player_list.clone(),
-                            ),
+                            ServerRequest::MinifiedAction(GameAction::MoveCurrentTetrimino(
+                                Direction::Right,
+                            )),
                         );
                     }
                     player.last_call = Instant::now();
@@ -250,11 +244,9 @@ impl<'a> Pool<'a> {
 
                     let _ = self.stream_list.send_to(
                         socket,
-                        ServerRequest::Action(
-                            GameAction::MoveCurrentTetrimino(Direction::Down),
-                            player.player.clone(),
-                            player_list.clone(),
-                        ),
+                        ServerRequest::MinifiedAction(GameAction::MoveCurrentTetrimino(
+                            Direction::FastDown,
+                        )),
                     );
                     player.last_call = Instant::now();
                 }
@@ -263,14 +255,9 @@ impl<'a> Pool<'a> {
                 let matrix = player.player.matrix().clone();
                 if let Some(tetrimino) = player.player.current_tetrimino_mut() {
                     if tetrimino.rotate(&matrix) {
-                        let _ = self.stream_list.send_to(
-                            socket,
-                            ServerRequest::Action(
-                                GameAction::Rotate,
-                                player.player.clone(),
-                                player_list.clone(),
-                            ),
-                        );
+                        let _ = self
+                            .stream_list
+                            .send_to(socket, ServerRequest::MinifiedAction(GameAction::Rotate));
                         player.last_call = Instant::now();
                     }
                 }
@@ -280,11 +267,7 @@ impl<'a> Pool<'a> {
                     player.player.stock_current_tetrimino();
                     let _ = self.stream_list.send_to(
                         socket,
-                        ServerRequest::Action(
-                            GameAction::StockTetrimino,
-                            player.player.clone(),
-                            player_list.clone(),
-                        ),
+                        ServerRequest::MinifiedAction(GameAction::StockTetrimino),
                     );
                     player.last_call = Instant::now();
                 }

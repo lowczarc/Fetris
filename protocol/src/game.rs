@@ -83,10 +83,18 @@ impl PlayerGame {
         }
     }
 
-    pub fn new_tetrimino(&mut self) {
+    pub fn new_tetrimino(&mut self) -> TetriminoType {
+        let added_tetrimino = self.bag.choose_a_tetrimino();
+
+        self.change_tetrimino_add_pending(added_tetrimino);
+
+        added_tetrimino
+    }
+
+    pub fn change_tetrimino_add_pending(&mut self, added_tetrimino: TetriminoType) {
         let tetrimino = self.pending_tetriminos.pop().unwrap();
-        self.pending_tetriminos
-            .insert(0, self.bag.choose_a_tetrimino());
+
+        self.pending_tetriminos.insert(0, added_tetrimino);
         self.change_current_tetrimino(tetrimino);
     }
 
@@ -151,7 +159,7 @@ impl PlayerGame {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum Direction {
     Left,
     Right,
@@ -160,12 +168,13 @@ pub enum Direction {
     FastDown,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum GameAction {
     MoveCurrentTetrimino(Direction),
+    PlaceCurrentTetrimino,
     Rotate,
-    NewTetrimino,
-    GetGarbage(u32),
+    NewTetrimino(TetriminoType),
+    GetGarbage(u32, usize),
     StockTetrimino,
 }
 

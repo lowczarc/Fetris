@@ -1,6 +1,6 @@
 use fetris_protocol::{
-    game::Direction, game::Input, game::PlayerMinimalInfos, tetrimino::TetriminoType,
-    ClientRequest, ServerRequest,
+    actions, game::Direction, game::Input, game::PlayerGame, game::PlayerMinimalInfos,
+    tetrimino::TetriminoType, ClientRequest, ServerRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -117,7 +117,7 @@ fn print_tetrimino_at(tetrimino: TetriminoType, x: u16, y: u16) {
     }
 }
 
-fn print_other_player(other_players: Vec<PlayerMinimalInfos>, x: u16, y: u16) {
+fn print_other_player(other_players: &[PlayerMinimalInfos], x: u16, y: u16) {
     for i in 0..other_players.len() {
         print!(
             "{}{}{}{}",
@@ -130,6 +130,66 @@ fn print_other_player(other_players: Vec<PlayerMinimalInfos>, x: u16, y: u16) {
             other_players[i].name,
             color::Fg(color::Reset),
         );
+    }
+}
+
+fn print_game(game: &PlayerGame) {
+    let matrix = game.matrix();
+    let tetrimino = game.current_tetrimino();
+    let stocked_tetrimino = game.stocked_tetrimino();
+    let pending_tetriminos = game.pending_tetriminos();
+    let prediction = if let Some(mut tetrimino_prediction) = game.current_tetrimino().clone() {
+        while tetrimino_prediction.can_move_to(&matrix, Direction::Down) {
+            tetrimino_prediction.apply_direction(Direction::Down);
+        }
+        Some(tetrimino_prediction)
+    } else {
+        None
+    };
+
+    print!("{}_____________________", termion::cursor::Goto(1, 2));
+    print!("{}▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔", termion::cursor::Goto(1, 25));
+    for j in 0..22 {
+        print!("{}", termion::cursor::Goto(1, j as u16 + 3));
+        let y = 21 - j;
+        for x in 0..10 {
+            if matrix[y][x] != None
+                || (tetrimino.is_some() && tetrimino.unwrap().check_position(x as i8, y as i8))
+            {
+                let ttype = if let Some(ttype) = matrix[y][x] {
+                    ttype
+                } else {
+                    tetrimino.unwrap().ttype()
+                };
+
+                let color = match ttype {
+                    TetriminoType::I => color::Cyan.bg_str().to_string(),
+                    TetriminoType::J => color::Blue.bg_str().to_string(),
+                    TetriminoType::L => color::Rgb(255, 173, 0).bg_string(),
+                    TetriminoType::O => color::Yellow.bg_str().to_string(),
+                    TetriminoType::S => color::Green.bg_str().to_string(),
+                    TetriminoType::T => color::Magenta.bg_str().to_string(),
+                    TetriminoType::Z => color::Red.bg_str().to_string(),
+                    TetriminoType::None => color::White.bg_str().to_string(),
+                };
+                print!("{}  {}", color, color::Bg(color::Reset));
+            } else if prediction.is_some() && prediction.unwrap().check_position(x as i8, y as i8) {
+                print!("{}  {}", color::Bg(color::White), color::Bg(color::Reset));
+            } else {
+                print!("  ");
+            }
+        }
+        print!("|");
+    }
+    print!("{}  Hold:", termion::cursor::Goto(23, 1));
+    if stocked_tetrimino != TetriminoType::None {
+        print_tetrimino_at(stocked_tetrimino, 23, 3);
+    }
+    print!("{}  Next:", termion::cursor::Goto(23, 6));
+    for i in 0..pending_tetriminos.len() {
+        let j = pending_tetriminos.len() - 1 - i;
+
+        print_tetrimino_at(pending_tetriminos[j], 23, 8 + (3 * i as u16));
     }
 }
 
@@ -158,6 +218,14 @@ fn main() -> Result<(), std::io::Error> {
             termion::clear::All,
             termion::cursor::Goto(1, 1),
         );
+        let mut game =
+            if let Ok(ServerRequest::GameReady(game)) = ServerRequest::from_reader(&reader) {
+                game
+            } else {
+                panic!("Invalid first server request");
+            };
+        let mut other_players = Vec::new();
+
         loop {
             if let Ok(request) = ServerRequest::from_reader(&reader) {
                 if request == ServerRequest::GameOver {
@@ -167,70 +235,17 @@ fn main() -> Result<(), std::io::Error> {
                     loop {}
                 }
                 print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All,);
-                if let ServerRequest::Action(_, game, other_players) = request {
-                    let matrix = game.matrix();
-                    let tetrimino = game.current_tetrimino();
-                    let stocked_tetrimino = game.stocked_tetrimino();
-                    let pending_tetriminos = game.pending_tetriminos();
-                    let prediction =
-                        if let Some(mut tetrimino_prediction) = game.current_tetrimino().clone() {
-                            while tetrimino_prediction.can_move_to(&matrix, Direction::Down) {
-                                tetrimino_prediction.apply_direction(Direction::Down);
-                            }
-                            Some(tetrimino_prediction)
-                        } else {
-                            None
-                        };
-
-                    print!("{}_____________________", termion::cursor::Goto(1, 2));
-                    print!("{}▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔", termion::cursor::Goto(1, 25));
-                    for j in 0..22 {
-                        print!("{}", termion::cursor::Goto(1, j as u16 + 3));
-                        let y = 21 - j;
-                        for x in 0..10 {
-                            if matrix[y][x] != None
-                                || (tetrimino.is_some()
-                                    && tetrimino.unwrap().check_position(x as i8, y as i8))
-                            {
-                                let ttype = if let Some(ttype) = matrix[y][x] {
-                                    ttype
-                                } else {
-                                    tetrimino.unwrap().ttype()
-                                };
-
-                                let color = match ttype {
-                                    TetriminoType::I => color::Cyan.bg_str().to_string(),
-                                    TetriminoType::J => color::Blue.bg_str().to_string(),
-                                    TetriminoType::L => color::Rgb(255, 173, 0).bg_string(),
-                                    TetriminoType::O => color::Yellow.bg_str().to_string(),
-                                    TetriminoType::S => color::Green.bg_str().to_string(),
-                                    TetriminoType::T => color::Magenta.bg_str().to_string(),
-                                    TetriminoType::Z => color::Red.bg_str().to_string(),
-                                    TetriminoType::None => color::White.bg_str().to_string(),
-                                };
-                                print!("{}  {}", color, color::Bg(color::Reset));
-                            } else if prediction.is_some()
-                                && prediction.unwrap().check_position(x as i8, y as i8)
-                            {
-                                print!("{}  {}", color::Bg(color::White), color::Bg(color::Reset));
-                            } else {
-                                print!("  ");
-                            }
-                        }
-                        print!("|");
+                match request {
+                    ServerRequest::PlayerListUpdate(other_players_new) => {
+                        other_players = other_players_new;
                     }
-                    print!("{}  Hold:", termion::cursor::Goto(23, 1));
-                    if stocked_tetrimino != TetriminoType::None {
-                        print_tetrimino_at(stocked_tetrimino, 23, 3);
+                    ServerRequest::MinifiedAction(action) => {
+                        actions::apply_action(&mut game, action);
+                        print_game(&game);
+                        print_other_player(&other_players, 40, 1);
+                        println!("");
                     }
-                    print!("{}  Next:", termion::cursor::Goto(23, 6));
-                    for i in 0..pending_tetriminos.len() {
-                        let j = pending_tetriminos.len() - 1 - i;
-
-                        print_tetrimino_at(pending_tetriminos[j], 23, 8 + (3 * i as u16));
-                    }
-                    print_other_player(other_players, 40, 1);
-                    println!("");
+                    _ => {}
                 }
             } else {
                 break;

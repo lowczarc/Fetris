@@ -66,12 +66,25 @@ impl StreamList {
         let all_streams = self.0.lock().unwrap();
 
         if let Some(mut stream) = all_streams.get(&addr) {
-            if let Err(err) = stream.write(&request.into_bytes()) {
+            let request_bytes = request.into_bytes();
+            println!("{} bytes sent", request_bytes.len());
+            if let Err(err) = stream.write(&request_bytes) {
                 return Err(SendStreamError::CommunicationError(err));
             }
             Ok(())
         } else {
             return Err(SendStreamError::UnknownAddr);
+        }
+    }
+
+    pub fn send_to_all(&self, request: ServerRequest) {
+        let all_streams = self.0.lock().unwrap();
+        for mut stream in all_streams.values() {
+            let request_bytes = request.clone().into_bytes();
+            println!("{} bytes sent", request_bytes.len());
+            if let Err(err) = stream.write(&request_bytes) {
+                eprintln!("Communication error: {}", err);
+            }
         }
     }
 }

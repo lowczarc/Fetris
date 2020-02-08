@@ -1,6 +1,6 @@
 use fetris_protocol::{
-    actions, game::Direction, game::Input, game::PlayerGame, game::PlayerMinimalInfos,
-    tetrimino::TetriminoType, ClientRequest, ServerRequest,
+    actions, game::Direction, game::GameAction, game::Input, game::PlayerGame,
+    game::PlayerMinimalInfos, tetrimino::TetriminoType, ClientRequest, ServerRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::{stdin, stdout, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use termion;
 use termion::color;
@@ -103,7 +104,7 @@ fn print_tetrimino_at(tetrimino: TetriminoType, x: u16, y: u16) {
                 TetriminoType::S => color::Green.bg_str().to_string(),
                 TetriminoType::T => color::Magenta.bg_str().to_string(),
                 TetriminoType::Z => color::Red.bg_str().to_string(),
-                _ => unreachable!(),
+                _ => String::new(),
             };
             if i < tetrimino.to_blocks().len()
                 && j < tetrimino.to_blocks().len()
@@ -193,6 +194,24 @@ fn print_game(game: &PlayerGame) {
     }
 }
 
+fn print_interface(game: &PlayerGame, other_players: &[PlayerMinimalInfos]) {
+    print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All,);
+    print_game(&game);
+    print_other_player(&other_players, 40, 1);
+    println!("");
+}
+
+fn input_to_action(input: Input) -> GameAction {
+    match input {
+        Input::Left => GameAction::MoveCurrentTetrimino(Direction::Left),
+        Input::Right => GameAction::MoveCurrentTetrimino(Direction::Right),
+        Input::FastMove => GameAction::MoveCurrentTetrimino(Direction::FastDown),
+        Input::Rotate => GameAction::Rotate,
+        Input::StockTetrimino => GameAction::StockTetrimino,
+        Input::Acceleration => GameAction::MoveCurrentTetrimino(Direction::Down),
+    }
+}
+
 fn main() -> Result<(), std::io::Error> {
     let config = if let Some(config) = Config::from_path("config.toml") {
         config
@@ -208,11 +227,15 @@ fn main() -> Result<(), std::io::Error> {
 
     let mut stream = TcpStream::connect(env::args().nth(1).unwrap())?;
 
-    let _stdout = stdout().into_raw_mode().unwrap();
+    let reader = stream.try_clone().unwrap();
     let _hide_cursor = termion::cursor::HideCursor::from(stdout());
 
-    let reader = stream.try_clone().unwrap();
+    let _stdout = stdout().into_raw_mode().unwrap();
+    let game: Arc<Mutex<Option<PlayerGame>>> = Arc::new(Mutex::new(None));
+    let game_board = game.clone();
+
     thread::spawn(move || {
+        let mut other_players = Vec::new();
         println!(
             "{}{}Waiting for other players ...",
             termion::clear::All,
@@ -224,26 +247,29 @@ fn main() -> Result<(), std::io::Error> {
             } else {
                 panic!("Invalid first server request");
             };
-        let mut other_players = Vec::new();
+        {
+            let mut board = game_board.lock().unwrap();
+            *board = Some(game);
+        }
 
         loop {
             if let Ok(request) = ServerRequest::from_reader(&reader) {
                 if request == ServerRequest::GameOver {
+                    let mut board = game_board.lock().unwrap();
+                    *board = None;
                     println!("{}-------------", termion::cursor::Goto(4, 12));
                     println!("{}| Game Over |", termion::cursor::Goto(4, 13));
                     println!("{}-------------", termion::cursor::Goto(4, 14));
                     loop {}
                 }
-                print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All,);
                 match request {
                     ServerRequest::PlayerListUpdate(other_players_new) => {
                         other_players = other_players_new;
                     }
                     ServerRequest::MinifiedAction(action) => {
-                        actions::apply_action(&mut game, action);
-                        print_game(&game);
-                        print_other_player(&other_players, 40, 1);
-                        println!("");
+                        let mut board = game_board.lock().unwrap();
+                        actions::apply_action(board.as_mut().unwrap(), action);
+                        print_interface(board.as_mut().unwrap(), &other_players);
                     }
                     _ => {}
                 }
@@ -266,11 +292,18 @@ fn main() -> Result<(), std::io::Error> {
             break;
         }
         if let Some(input) = config.get(&c) {
-            if stream
-                .write(&ClientRequest::Input(*input).into_bytes())
-                .is_err()
-            {
-                break;
+            let board = game.lock().unwrap();
+            if let Some(game_board) = &*board {
+                let mut game_board_prediction = game_board.clone();
+
+                actions::apply_action(&mut game_board_prediction, input_to_action(*input));
+                print_interface(&game_board_prediction, &[]);
+                if stream
+                    .write(&ClientRequest::Input(*input).into_bytes())
+                    .is_err()
+                {
+                    break;
+                }
             }
         }
         if stream.peer_addr().is_err() {

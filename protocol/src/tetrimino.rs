@@ -52,9 +52,7 @@ impl TetriminoType {
                 vec![true, true, false],
                 vec![false, true, false],
             ],
-            Self::None => {
-                panic!("The type none is not a valid tetrimino and can't be converted to blocks")
-            }
+            Self::None => vec![],
         }
     }
 }

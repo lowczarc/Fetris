@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use fetris_protocol::game::{Direction, GameAction, Input, PlayerGame, PlayerMinimalInfos};
 use fetris_protocol::ServerRequest;
 
+use crate::consts::CALL_EVERY_MS;
 use crate::game::players::Player;
 use crate::network::StreamList;
 
@@ -51,7 +52,10 @@ impl<'a> Pool<'a> {
             let player = players.get_mut(socket).unwrap();
             let player_game = PlayerGame::new(player.name().into());
 
-            let _ = stream_list.send_to(socket, ServerRequest::GameReady(player_game.clone()));
+            let _ = stream_list.send_to(
+                socket,
+                ServerRequest::GameReady(player_game.clone(), CALL_EVERY_MS),
+            );
             pool_players.insert(socket.clone(), PlayerInfos::new(player_game));
             player.change_pool(PoolState::Pool(id));
         }
@@ -59,7 +63,7 @@ impl<'a> Pool<'a> {
         let pool = Self {
             players: pool_players,
             stream_list,
-            call_every: Duration::from_millis(500),
+            call_every: Duration::from_millis(CALL_EVERY_MS),
         };
 
         stream_list.send_to_all(ServerRequest::PlayerListUpdate(pool.user_list()));
@@ -134,9 +138,7 @@ impl<'a> Pool<'a> {
         let mut garbage: Vec<(SocketAddr, u32, bool)> = Vec::new();
         let user_list = self.user_list();
         for (socket, player) in self.players.iter_mut() {
-            if player.dead
-                || (Instant::now().duration_since(player.last_call) < self.call_every)
-            {
+            if player.dead || (Instant::now().duration_since(player.last_call) < self.call_every) {
                 continue;
             }
 
@@ -278,8 +280,8 @@ impl<'a> Pool<'a> {
                             )),
                         );
                     }
+                    player.last_call = Instant::now();
                 }
-                player.last_call = Instant::now();
             }
         }
 

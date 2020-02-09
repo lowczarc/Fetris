@@ -19,7 +19,7 @@ pub enum ClientRequest {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ServerRequest {
     BadRequest,
-    GameReady(game::PlayerGame),
+    GameReady(game::PlayerGame, u16),
     PlayerListUpdate(Vec<game::PlayerMinimalInfos>),
     MinifiedAction(game::GameAction),
     GameOver,

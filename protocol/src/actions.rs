@@ -66,6 +66,5 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
             }
             Ok(())
         }
-        _ => unimplemented!(),
     }
 }

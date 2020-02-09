@@ -63,7 +63,7 @@ impl<'a> Pool<'a> {
         let pool = Self {
             players: pool_players,
             stream_list,
-            call_every: Duration::from_millis(CALL_EVERY_MS),
+            call_every: Duration::from_millis(CALL_EVERY_MS.into()),
         };
 
         stream_list.send_to_all(ServerRequest::PlayerListUpdate(pool.user_list()));

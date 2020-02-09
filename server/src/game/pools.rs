@@ -19,7 +19,6 @@ pub struct PlayerInfos {
     pub player: PlayerGame,
     pub last_call: Instant,
     pub garbage_received: u32,
-    pub accelerate: bool,
     pub dead: bool,
 }
 
@@ -29,7 +28,6 @@ impl PlayerInfos {
             player,
             last_call: Instant::now(),
             garbage_received: 0,
-            accelerate: false,
             dead: false,
         }
     }
@@ -137,8 +135,7 @@ impl<'a> Pool<'a> {
         let user_list = self.user_list();
         for (socket, player) in self.players.iter_mut() {
             if player.dead
-                || (Instant::now().duration_since(player.last_call) < self.call_every
-                    && !player.accelerate)
+                || (Instant::now().duration_since(player.last_call) < self.call_every)
             {
                 continue;
             }
@@ -153,7 +150,7 @@ impl<'a> Pool<'a> {
                             Direction::Down,
                         )),
                     );
-                } else if !player.accelerate {
+                } else {
                     let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
                         && !tetrimino.can_move_to(&matrix, Direction::Right)
                         && !tetrimino.can_move_to(&matrix, Direction::Up);
@@ -181,9 +178,6 @@ impl<'a> Pool<'a> {
                 }
             }
 
-            if player.accelerate {
-                player.accelerate = false;
-            }
             player.last_call = Instant::now();
         }
         for (addr, row_broken, is_t_spin) in garbage.into_iter() {
@@ -273,7 +267,19 @@ impl<'a> Pool<'a> {
                 }
             }
             Input::Acceleration => {
-                player.accelerate = true;
+                let matrix = player.player.matrix().clone();
+                if let Some(tetrimino) = player.player.current_tetrimino_mut() {
+                    if tetrimino.can_move_to(&matrix, Direction::Down) {
+                        tetrimino.apply_direction(Direction::Down);
+                        let _ = self.stream_list.send_to(
+                            &socket,
+                            ServerRequest::MinifiedAction(GameAction::MoveCurrentTetrimino(
+                                Direction::Down,
+                            )),
+                        );
+                    }
+                }
+                player.last_call = Instant::now();
             }
         }
 

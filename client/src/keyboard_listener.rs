@@ -45,7 +45,7 @@ pub fn keyboard_listen(
                 .write(&ClientRequest::Input(*input).into_bytes())
                 .is_err()
             {
-                break;
+                //break;
             }
             {
                 let mut action_queues = action_queues.lock().unwrap();
@@ -60,7 +60,7 @@ pub fn keyboard_listen(
             }
         }
         if stream.peer_addr().is_err() {
-            break;
+            //break;
         }
     }
 }

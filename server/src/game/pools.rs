@@ -144,6 +144,7 @@ impl<'a> Pool<'a> {
 
             let matrix = player.player.matrix().clone();
             if player.player.current_tetrimino().is_none() {
+                /*
                 let added_tetrimino = player.player.new_tetrimino();
                 if !player.player.current_tetrimino().unwrap().is_valid(&matrix) {
                     player.dead = true;
@@ -157,6 +158,7 @@ impl<'a> Pool<'a> {
                         ServerRequest::MinifiedAction(GameAction::NewTetrimino(added_tetrimino)),
                     );
                 }
+                */
             }
 
             player.last_call = Instant::now();
@@ -278,6 +280,12 @@ impl<'a> Pool<'a> {
                     let _ = self
                         .stream_list
                         .send_to(socket, ServerRequest::MinifiedAction(GameAction::Fall));
+                } else {
+                    let added_tetrimino = player.player.new_tetrimino();
+                    let _ = self.stream_list.send_to(
+                        socket,
+                        ServerRequest::MinifiedAction(GameAction::NewTetrimino(added_tetrimino)),
+                    );
                 }
             }
         }

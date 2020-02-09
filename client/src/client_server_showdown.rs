@@ -23,7 +23,12 @@ impl ActionsQueues {
 
         for i in 0..server_queue.len() {
             let i = server_queue.len() - i - 1;
-            if server_queue.get(i).expect("WTF ?") != client_queue.get(i).expect("WTF ?") {
+            if let GameAction::NewTetrimino(_) = server_queue.get(i).unwrap() {
+                if let GameAction::NewTetrimino(_) = client_queue.get(i).unwrap() {
+                } else {
+                    return ShowDownResult::NeedReSynchronize;
+                }
+            } else if server_queue.get(i).unwrap() != client_queue.get(i).unwrap() {
                 return ShowDownResult::NeedReSynchronize;
             }
         }
@@ -38,12 +43,22 @@ impl ActionsQueues {
     }
 
     pub fn push_server_action(&mut self, action: GameAction) {
+        if let GameAction::GetGarbage(nb, hole_position) = &action {
+            let client_server_synchronization = self.client_server_synchronization();
+            self.0.push(action.clone());
+        }
         self.1.insert(0, action);
     }
 
     fn client_server_synchronization(&mut self) -> ShowDownResult {
         let client_server_synchronization = self.are_client_server_synchronized();
         match client_server_synchronization {
+            ShowDownResult::NeedReSynchronize => {
+                panic!(format!(
+                    "Synchronization error ({:?}), ({:?})",
+                    self.0, self.1
+                ));
+            }
             ShowDownResult::NeedReSynchronize | ShowDownResult::Synchronized => {
                 self.0 = vec![];
                 self.1 = vec![];

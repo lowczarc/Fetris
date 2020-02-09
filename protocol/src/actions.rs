@@ -1,7 +1,9 @@
 use crate::game::{Direction, GameAction, PlayerGame};
 
+#[derive(PartialEq)]
 pub enum ApplyActionError {
-    InvalidAction,
+    InvalidActionResetTimer,
+    InvalidActionNoResetTimer,
 }
 
 pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), ApplyActionError> {
@@ -16,7 +18,7 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
                 player.place_current_tetrimino();
                 Ok(())
             } else {
-                Err(ApplyActionError::InvalidAction)
+                Err(ApplyActionError::InvalidActionNoResetTimer)
             }
         }
         GameAction::MoveCurrentTetrimino(direction) => {
@@ -26,10 +28,10 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
                     tetrimino.apply_direction(direction);
                     Ok(())
                 } else {
-                    Err(ApplyActionError::InvalidAction)
+                    Err(ApplyActionError::InvalidActionResetTimer)
                 }
             } else {
-                Err(ApplyActionError::InvalidAction)
+                Err(ApplyActionError::InvalidActionNoResetTimer)
             }
         }
         GameAction::NewTetrimino(added_tetrimino) => {
@@ -46,10 +48,10 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
                 if tetrimino.rotate(&matrix) {
                     Ok(())
                 } else {
-                    Err(ApplyActionError::InvalidAction)
+                    Err(ApplyActionError::InvalidActionResetTimer)
                 }
             } else {
-                Err(ApplyActionError::InvalidAction)
+                Err(ApplyActionError::InvalidActionNoResetTimer)
             }
         }
         GameAction::StockTetrimino => {
@@ -57,7 +59,7 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
                 player.stock_current_tetrimino();
                 Ok(())
             } else {
-                Err(ApplyActionError::InvalidAction)
+                Err(ApplyActionError::InvalidActionNoResetTimer)
             }
         }
         GameAction::GetGarbage(garbage_to_send, hole_position) => {
@@ -65,6 +67,22 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
                 player.add_garbage(hole_position);
             }
             Ok(())
+        }
+        GameAction::Fall => {
+            let matrix = player.matrix().clone();
+            if let Some(tetrimino) = player.current_tetrimino_mut() {
+                if tetrimino.can_move_to(&matrix, Direction::Down) {
+                    tetrimino.apply_direction(Direction::Down);
+                } else {
+                    let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
+                        && !tetrimino.can_move_to(&matrix, Direction::Right)
+                        && !tetrimino.can_move_to(&matrix, Direction::Up);
+                    player.place_current_tetrimino();
+                }
+                Ok(())
+            } else {
+                Err(ApplyActionError::InvalidActionResetTimer)
+            }
         }
     }
 }

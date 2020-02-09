@@ -176,6 +176,7 @@ pub enum GameAction {
     NewTetrimino(TetriminoType),
     GetGarbage(u32, usize),
     StockTetrimino,
+    Fall,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -186,4 +187,5 @@ pub enum Input {
     Rotate,
     StockTetrimino,
     Acceleration,
+    Fall,
 }

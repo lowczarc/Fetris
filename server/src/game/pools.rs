@@ -143,28 +143,7 @@ impl<'a> Pool<'a> {
             }
 
             let matrix = player.player.matrix().clone();
-            if let Some(tetrimino) = player.player.current_tetrimino_mut() {
-                if tetrimino.can_move_to(&matrix, Direction::Down) {
-                    tetrimino.apply_direction(Direction::Down);
-                    let _ = self.stream_list.send_to(
-                        socket,
-                        ServerRequest::MinifiedAction(GameAction::MoveCurrentTetrimino(
-                            Direction::Down,
-                        )),
-                    );
-                } else {
-                    let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
-                        && !tetrimino.can_move_to(&matrix, Direction::Right)
-                        && !tetrimino.can_move_to(&matrix, Direction::Up);
-                    let row_broken = player.player.place_current_tetrimino();
-
-                    garbage.push((socket.clone(), row_broken.len() as u32, is_t_spin));
-                    let _ = self.stream_list.send_to(
-                        &socket,
-                        ServerRequest::MinifiedAction(GameAction::PlaceCurrentTetrimino),
-                    );
-                }
-            } else {
+            if player.player.current_tetrimino().is_none() {
                 let added_tetrimino = player.player.new_tetrimino();
                 if !player.player.current_tetrimino().unwrap().is_valid(&matrix) {
                     player.dead = true;
@@ -281,6 +260,24 @@ impl<'a> Pool<'a> {
                         );
                     }
                     player.last_call = Instant::now();
+                }
+            }
+            Input::Fall => {
+                let matrix = player.player.matrix().clone();
+                if let Some(tetrimino) = player.player.current_tetrimino_mut() {
+                    if tetrimino.can_move_to(&matrix, Direction::Down) {
+                        tetrimino.apply_direction(Direction::Down);
+                    } else {
+                        let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
+                            && !tetrimino.can_move_to(&matrix, Direction::Right)
+                            && !tetrimino.can_move_to(&matrix, Direction::Up);
+                        let row_broken = player.player.place_current_tetrimino();
+
+                        garbage = Some((socket.clone(), row_broken.len() as u32, is_t_spin));
+                    }
+                    let _ = self
+                        .stream_list
+                        .send_to(socket, ServerRequest::MinifiedAction(GameAction::Fall));
                 }
             }
         }

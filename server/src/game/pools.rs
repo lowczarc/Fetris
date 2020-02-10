@@ -144,21 +144,7 @@ impl<'a> Pool<'a> {
 
             let matrix = player.player.matrix().clone();
             if player.player.current_tetrimino().is_none() {
-                /*
-                let added_tetrimino = player.player.new_tetrimino();
-                if !player.player.current_tetrimino().unwrap().is_valid(&matrix) {
-                    player.dead = true;
-                    let _ = self.stream_list.send_to(socket, ServerRequest::GameOver);
-                    self.stream_list
-                        .send_to_all(ServerRequest::PlayerListUpdate(user_list.clone()));
-                    println!("{} is dead", socket);
-                } else {
-                    let _ = self.stream_list.send_to(
-                        socket,
-                        ServerRequest::MinifiedAction(GameAction::NewTetrimino(added_tetrimino)),
-                    );
-                }
-                */
+                // TODO: Verify if the client didn't freezed in a "Non-Death" state and kill it if so
             }
 
             player.last_call = Instant::now();
@@ -282,10 +268,18 @@ impl<'a> Pool<'a> {
                         .send_to(socket, ServerRequest::MinifiedAction(GameAction::Fall));
                 } else {
                     let added_tetrimino = player.player.new_tetrimino();
-                    let _ = self.stream_list.send_to(
-                        socket,
-                        ServerRequest::MinifiedAction(GameAction::NewTetrimino(added_tetrimino)),
-                    );
+                    if !player.player.current_tetrimino().unwrap().is_valid(&matrix) {
+                        player.dead = true;
+                        let _ = self.stream_list.send_to(socket, ServerRequest::GameOver);
+                        self.stream_list
+                            .send_to_all(ServerRequest::PlayerListUpdate(self.user_list().clone()));
+                        println!("{} is dead", socket);
+                    } else {
+                        let _ = self.stream_list.send_to(
+                            socket,
+                            ServerRequest::MinifiedAction(GameAction::NewTetrimino(added_tetrimino)),
+                        );
+                    }
                 }
             }
         }

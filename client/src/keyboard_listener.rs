@@ -8,6 +8,7 @@ use termion::{event::Key, input::TermRead};
 
 use crate::{client_server_showdown::ActionsQueues, config::Config};
 use fetris_protocol::{
+    actions,
     game::{Direction, GameAction, Input, PlayerGame},
     ClientRequest,
 };
@@ -49,12 +50,16 @@ pub fn keyboard_listen(
             }
             {
                 let mut action_queues = action_queues.lock().unwrap();
-                action_queues.push_client_action(input_to_action(*input));
                 let board = game_board.lock().unwrap();
                 if let Some(board) = &*board {
-                    if (action_queues.do_last_action_reset_timer(&board)) {
+                    let action_result =
+                        action_queues.action_result(board, input_to_action(input.clone()));
+                    if action_result != Err(actions::ApplyActionError::InvalidActionNoResetTimer) {
                         let mut last_action = last_action.lock().unwrap();
                         *last_action = time::Instant::now();
+                    }
+                    if action_result.is_ok() {
+                        action_queues.push_client_action(input_to_action(*input));
                     }
                 }
             }

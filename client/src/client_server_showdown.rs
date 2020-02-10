@@ -22,13 +22,14 @@ impl ActionsQueues {
         }
 
         for i in 0..server_queue.len() {
+            let j = client_queue.len() - i - 1;
             let i = server_queue.len() - i - 1;
             if let GameAction::NewTetrimino(_) = server_queue.get(i).unwrap() {
-                if let GameAction::NewTetrimino(_) = client_queue.get(i).unwrap() {
+                if let GameAction::NewTetrimino(_) = client_queue.get(j).unwrap() {
                 } else {
                     return ShowDownResult::NeedReSynchronize;
                 }
-            } else if server_queue.get(i).unwrap() != client_queue.get(i).unwrap() {
+            } else if server_queue.get(i).unwrap() != client_queue.get(j).unwrap() {
                 return ShowDownResult::NeedReSynchronize;
             }
         }
@@ -53,12 +54,6 @@ impl ActionsQueues {
     fn client_server_synchronization(&mut self) -> ShowDownResult {
         let client_server_synchronization = self.are_client_server_synchronized();
         match client_server_synchronization {
-            ShowDownResult::NeedReSynchronize => {
-                panic!(format!(
-                    "Synchronization error ({:?}), ({:?})",
-                    self.0, self.1
-                ));
-            }
             ShowDownResult::NeedReSynchronize | ShowDownResult::Synchronized => {
                 self.0 = vec![];
                 self.1 = vec![];
@@ -78,23 +73,22 @@ impl ActionsQueues {
         let client_server_synchronization = self.client_server_synchronization();
         for i in 0..self.0.len() {
             let i = self.0.len() - i - 1;
-            actions::apply_action(&mut board, self.0.get(i).expect("WTF ?").clone());
+            actions::apply_action(&mut board, self.0.get(i).unwrap().clone());
         }
         (board, client_server_synchronization)
     }
 
-    pub fn do_last_action_reset_timer(&mut self, board: &PlayerGame) -> bool {
+    pub fn action_result(
+        &mut self,
+        board: &PlayerGame,
+        action: GameAction,
+    ) -> Result<(), actions::ApplyActionError> {
         let client_server_synchronization = self.client_server_synchronization();
         let mut board = board.clone();
-        let mut res = false;
         for i in 0..self.0.len() {
             let i = self.0.len() - i - 1;
-            if (actions::apply_action(&mut board, self.0.get(i).expect("WTF ?").clone())
-                != Err(actions::ApplyActionError::InvalidActionNoResetTimer))
-            {
-                res = true
-            }
+            actions::apply_action(&mut board, self.0.get(i).expect("WTF ?").clone());
         }
-        res
+        actions::apply_action(&mut board, action)
     }
 }

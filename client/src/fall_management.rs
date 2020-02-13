@@ -23,11 +23,11 @@ pub fn fall_management_thread(
 
     thread::spawn(move || loop {
         {
+            let mut action_queues = action_queues.lock().unwrap();
+            let board = board.lock().unwrap();
             let mut last_action = last_action.lock().unwrap();
             if (time::Instant::now().duration_since(*last_action) >= falling_interval) {
                 *last_action = time::Instant::now();
-                let mut action_queues = action_queues.lock().unwrap();
-                let board = board.lock().unwrap();
                 if let Some(board) = board.as_ref() {
                     if stream
                         .write(&ClientRequest::Input(Input::Fall).into_bytes())

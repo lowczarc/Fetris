@@ -29,8 +29,8 @@ pub fn launch_server_receiver_thread(
             }
             match request {
                 ServerRequest::MinifiedAction(action) => {
-                    let mut board = game_board.lock().unwrap();
                     let mut action_queues = action_queues.lock().unwrap();
+                    let mut board = game_board.lock().unwrap();
                     let _ = actions::apply_action(board.as_mut().unwrap(), action.clone());
                     action_queues.push_server_action(action);
                 }

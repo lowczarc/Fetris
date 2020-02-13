@@ -126,8 +126,8 @@ pub fn launch_print_thread(
 ) {
     thread::spawn(move || loop {
         {
-            let board = board_mutex.lock().unwrap();
             let mut action_queues = action_queues.lock().unwrap();
+            let board = board_mutex.lock().unwrap();
             if let Some(board) = board.as_ref() {
                 let client_predicted_board = action_queues.client_board_prediction(board.clone());
                 print_interface(&client_predicted_board.0, &[]);

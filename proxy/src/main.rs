@@ -21,7 +21,7 @@ fn main() {
         DEFAULT_SERVER_PORT.into()
     };
 
-    let port = if let Ok(port) = env::var("SERVER_PORT") {
+    let port = if let Ok(port) = env::var("PORT") {
         port
     } else {
         DEFAULT_PORT.into()

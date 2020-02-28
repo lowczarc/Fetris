@@ -1,5 +1,6 @@
 use fetris_protocol::{game::Input, ClientRequest, ServerRequest};
 use serde_json;
+use std::env;
 use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
@@ -8,15 +9,32 @@ use tungstenite::protocol::{Role, WebSocket};
 use tungstenite::server::accept;
 use tungstenite::Message;
 
-const ADDR: &'static str = "localhost:3001";
+const DEFAULT_SERVER_PORT: &str = "3001";
+const DEFAULT_PORT: &str = "9001";
+
+const SERVER_ADDR: &'static str = "localhost";
 
 fn main() {
-    let server = TcpListener::bind("127.0.0.1:9001").unwrap();
+    let server_port = if let Ok(server_port) = env::var("SERVER_PORT") {
+        server_port
+    } else {
+        DEFAULT_SERVER_PORT.into()
+    };
+
+    let port = if let Ok(port) = env::var("SERVER_PORT") {
+        port
+    } else {
+        DEFAULT_PORT.into()
+    };
+
+    let server = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     for stream in server.incoming() {
+        let server_port = server_port.clone();
         spawn(move || {
             let stream_read = stream.unwrap();
             let stream_write = stream_read.try_clone().unwrap();
-            let mut server_write = TcpStream::connect(ADDR).unwrap();
+            let mut server_write =
+                TcpStream::connect(format!("{}:{}", SERVER_ADDR, server_port)).unwrap();
             let server_read = server_write.try_clone().unwrap();
             let mut ws_read = accept(stream_read).unwrap();
             let mut ws_write = WebSocket::from_raw_socket(stream_write, Role::Server, None);

@@ -1,13 +1,21 @@
 use std::net::TcpListener;
 use std::sync::mpsc;
-use std::thread;
+use std::{env, thread};
 
 mod client_handler;
 mod game;
 mod network;
 
+const DEFAULT_PORT: &str = "3001";
+
 fn main() -> Result<(), std::io::Error> {
-    let listener = TcpListener::bind("0.0.0.0:3001")?;
+    let port = if let Ok(port) = env::var("PORT") {
+        port
+    } else {
+        DEFAULT_PORT.into()
+    };
+
+    let listener = TcpListener::bind(format!("0.0.0.0:{}", port))?;
     let stream_list = network::StreamList::new();
     let (sender, receiver) = mpsc::channel::<network::NetworkPacket>();
 

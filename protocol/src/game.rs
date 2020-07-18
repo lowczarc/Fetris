@@ -146,6 +146,9 @@ impl PlayerGame {
     }
 
     pub fn add_garbage(&mut self, hole: usize) {
+        if let Some(tetrimino) = self.current_tetrimino.as_mut() {
+            tetrimino.apply_direction(Direction::Up);
+        }
         let mut new_row = [Some(TetriminoType::None); 10];
         new_row[hole] = None;
 

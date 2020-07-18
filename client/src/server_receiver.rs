@@ -1,9 +1,11 @@
 use std::{
+    io::stdout,
     net::TcpStream,
     sync::{Arc, Mutex},
     thread, time,
 };
 use termion;
+use termion::raw::IntoRawMode;
 
 use fetris_protocol::{actions, game::PlayerGame, ServerRequest};
 
@@ -23,9 +25,6 @@ pub fn launch_server_receiver_thread(
                 println!("{}-------------", termion::cursor::Goto(4, 12));
                 println!("{}| Game Over |", termion::cursor::Goto(4, 13));
                 println!("{}-------------", termion::cursor::Goto(4, 14));
-                loop {
-                    thread::sleep(time::Duration::from_secs(1));
-                }
             }
             match request {
                 ServerRequest::MinifiedAction(action) => {

@@ -5,7 +5,7 @@ use crate::{
     rotation_tetrimino::{rotate_shape, wall_kicks_tests_list},
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TetriminoType {
     I,
     J,
@@ -57,7 +57,7 @@ impl TetriminoType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tetrimino {
     ttype: TetriminoType,
     rotation: u8,

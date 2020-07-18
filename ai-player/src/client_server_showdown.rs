@@ -39,10 +39,6 @@ impl ActionsQueues {
         ShowDownResult::Synchronized
     }
 
-    pub fn push_client_action(&mut self, action: GameAction) {
-        self.0.insert(0, action);
-    }
-
     pub fn push_server_action(&mut self, action: GameAction) {
         if let GameAction::GetGarbage(_, _) = &action {
             self.client_server_synchronization();
@@ -76,19 +72,5 @@ impl ActionsQueues {
             let _ = actions::apply_action(&mut board, self.0.get(i).unwrap().clone());
         }
         (board, client_server_synchronization)
-    }
-
-    pub fn action_result(
-        &mut self,
-        board: &PlayerGame,
-        action: GameAction,
-    ) -> Result<(), actions::ApplyActionError> {
-        self.client_server_synchronization();
-        let mut board = board.clone();
-        for i in 0..self.0.len() {
-            let i = self.0.len() - i - 1;
-            let _ = actions::apply_action(&mut board, self.0.get(i).expect("WTF ?").clone());
-        }
-        actions::apply_action(&mut board, action)
     }
 }

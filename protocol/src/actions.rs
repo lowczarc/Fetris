@@ -74,9 +74,6 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
                 if tetrimino.can_move_to(&matrix, Direction::Down) {
                     tetrimino.apply_direction(Direction::Down);
                 } else {
-                    let is_t_spin = !tetrimino.can_move_to(&matrix, Direction::Left)
-                        && !tetrimino.can_move_to(&matrix, Direction::Right)
-                        && !tetrimino.can_move_to(&matrix, Direction::Up);
                     player.place_current_tetrimino();
                 }
                 Ok(())

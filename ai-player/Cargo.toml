@@ -1,0 +1,11 @@
+[package]
+name = "ai-player"
+version = "0.1.0"
+authors = ["lowczarc"]
+edition = "2018"
+
+[dependencies]
+fetris_protocol = { path = "../protocol" }
+termion = "1.5.5"
+toml = "0.5.5"
+serde = "1.0.104"

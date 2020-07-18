@@ -7,7 +7,7 @@ use std::time;
 use fetris_protocol::{ClientRequest, ServerRequest};
 
 use crate::game::players::Player;
-use crate::game::pools::{self, Pool, PoolId, PoolState};
+use crate::game::pools::{Pool, PoolId, PoolState};
 use crate::network::{NetworkAction, NetworkPacket, StreamList};
 
 pub struct Options {

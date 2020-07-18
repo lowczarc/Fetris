@@ -1,7 +1,7 @@
 use std::{
     net::TcpStream,
     sync::{Arc, Mutex},
-    thread,
+    thread, time,
 };
 use termion;
 
@@ -23,6 +23,9 @@ pub fn launch_server_receiver_thread(
                 println!("{}-------------", termion::cursor::Goto(4, 12));
                 println!("{}| Game Over |", termion::cursor::Goto(4, 13));
                 println!("{}-------------", termion::cursor::Goto(4, 14));
+                loop {
+                    thread::sleep(time::Duration::from_secs(1));
+                }
             }
             match request {
                 ServerRequest::MinifiedAction(action) => {

@@ -135,22 +135,16 @@ impl<'a> Pool<'a> {
     }
 
     pub fn update(&mut self) {
-        let mut garbage: Vec<(SocketAddr, u32, bool)> = Vec::new();
-        let user_list = self.user_list();
-        for (socket, player) in self.players.iter_mut() {
+        for (_, player) in self.players.iter_mut() {
             if player.dead || (Instant::now().duration_since(player.last_call) < self.call_every) {
                 continue;
             }
 
-            let matrix = player.player.matrix().clone();
             if player.player.current_tetrimino().is_none() {
                 // TODO: Verify if the client didn't freezed in a "Non-Death" state and kill it if so
             }
 
             player.last_call = Instant::now();
-        }
-        for (addr, row_broken, is_t_spin) in garbage.into_iter() {
-            self.send_garbage(&addr, row_broken, is_t_spin);
         }
     }
 
@@ -277,7 +271,9 @@ impl<'a> Pool<'a> {
                     } else {
                         let _ = self.stream_list.send_to(
                             socket,
-                            ServerRequest::MinifiedAction(GameAction::NewTetrimino(added_tetrimino)),
+                            ServerRequest::MinifiedAction(GameAction::NewTetrimino(
+                                added_tetrimino,
+                            )),
                         );
                     }
                 }

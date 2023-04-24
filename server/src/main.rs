@@ -58,9 +58,7 @@ fn main() -> Result<(), std::io::Error> {
 
     {
         let stream_list = stream_list.clone();
-        let options = game::Options {
-            pool_size,
-        };
+        let options = game::Options { pool_size };
 
         thread::spawn(move || game::game_main_thread(stream_list, receiver, options));
     }

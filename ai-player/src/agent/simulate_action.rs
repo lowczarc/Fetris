@@ -29,8 +29,8 @@ pub fn simulate_action(
                 Err(SimulateActionError::ImpossibleAction)
             }
         }
-        GameAction::Rotate => {
-            if tetrimino.rotate(&matrix) {
+        GameAction::Rotate(revert) => {
+            if tetrimino.rotate(&matrix, revert) {
                 Ok((tetrimino, false))
             } else {
                 Err(SimulateActionError::ImpossibleAction)
@@ -60,7 +60,7 @@ pub fn is_line_complete(matrix: &Matrix, y: usize) -> bool {
     true
 }
 
-pub fn remove_complete_lines(matrix: &mut Matrix) {
+pub fn remove_complete_lines(matrix: &mut Matrix) -> u32 {
     let mut line_to_remove = Vec::new();
     for y in 0..matrix.len() {
         if is_line_complete(matrix, y) {
@@ -74,9 +74,10 @@ pub fn remove_complete_lines(matrix: &mut Matrix) {
         }
         matrix[matrix.len() - 1] = [None; 10];
     }
+    return line_to_remove.len() as u32;
 }
 
-pub fn place_tetrimino(tetrimino: &Tetrimino, matrix: &Matrix) -> Matrix {
+pub fn place_tetrimino(tetrimino: &Tetrimino, matrix: &Matrix) -> (Matrix, u32) {
     let mut matrix = matrix.clone();
     let tetri_shape = tetrimino.to_blocks();
 
@@ -91,6 +92,6 @@ pub fn place_tetrimino(tetrimino: &Tetrimino, matrix: &Matrix) -> Matrix {
         }
     }
 
-    remove_complete_lines(&mut matrix);
-    matrix
+    let removed_lines = remove_complete_lines(&mut matrix);
+    (matrix, removed_lines)
 }

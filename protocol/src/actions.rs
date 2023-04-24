@@ -42,10 +42,10 @@ pub fn apply_action(player: &mut PlayerGame, action: GameAction) -> Result<(), A
             player.place_current_tetrimino();
             Ok(())
         }
-        GameAction::Rotate => {
+        GameAction::Rotate(direction) => {
             let matrix = player.matrix().clone();
             if let Some(tetrimino) = player.current_tetrimino_mut() {
-                if tetrimino.rotate(&matrix) {
+                if tetrimino.rotate(&matrix, direction) {
                     Ok(())
                 } else {
                     Err(ApplyActionError::InvalidActionResetTimer)

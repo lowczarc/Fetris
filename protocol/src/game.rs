@@ -175,7 +175,7 @@ pub enum Direction {
 pub enum GameAction {
     MoveCurrentTetrimino(Direction),
     PlaceCurrentTetrimino,
-    Rotate,
+    Rotate(bool),
     NewTetrimino(TetriminoType),
     GetGarbage(u32, usize),
     StockTetrimino,
@@ -188,6 +188,7 @@ pub enum Input {
     Right,
     FastMove,
     Rotate,
+    RotateRevert,
     StockTetrimino,
     Acceleration,
     Fall,

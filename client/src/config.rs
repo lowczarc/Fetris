@@ -9,6 +9,7 @@ pub struct Config {
     left: String,
     right: String,
     rotate: String,
+    rotate_revert: String,
     instant: String,
     accelerate: String,
     stock: String,
@@ -20,6 +21,7 @@ impl Default for Config {
             left: String::from("Left"),
             right: String::from("Right"),
             rotate: String::from("Enter"),
+            rotate_revert: String::from("'"),
             instant: String::from("/"),
             accelerate: String::from("Down"),
             stock: String::from("Up"),
@@ -56,6 +58,7 @@ impl Config {
         ret.insert(Self::parse_key(&self.left), Input::Left);
         ret.insert(Self::parse_key(&self.right), Input::Right);
         ret.insert(Self::parse_key(&self.rotate), Input::Rotate);
+        ret.insert(Self::parse_key(&self.rotate_revert), Input::RotateRevert);
         ret.insert(Self::parse_key(&self.instant), Input::FastMove);
         ret.insert(Self::parse_key(&self.accelerate), Input::Acceleration);
         ret.insert(Self::parse_key(&self.stock), Input::StockTetrimino);

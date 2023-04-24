@@ -18,7 +18,8 @@ fn input_to_action(input: Input) -> GameAction {
         Input::Left => GameAction::MoveCurrentTetrimino(Direction::Left),
         Input::Right => GameAction::MoveCurrentTetrimino(Direction::Right),
         Input::FastMove => GameAction::MoveCurrentTetrimino(Direction::FastDown),
-        Input::Rotate => GameAction::Rotate,
+        Input::Rotate => GameAction::Rotate(false),
+        Input::RotateRevert => GameAction::Rotate(true),
         Input::StockTetrimino => GameAction::StockTetrimino,
         Input::Acceleration => GameAction::MoveCurrentTetrimino(Direction::Down),
         Input::Fall => panic!("Unexpected Fall Input"),
@@ -27,10 +28,9 @@ fn input_to_action(input: Input) -> GameAction {
 
 pub fn agent_thread(mut stream: TcpStream, game_board: Arc<Mutex<Option<PlayerGame>>>) {
     loop {
-        thread::sleep(time::Duration::from_millis(200));
+        thread::sleep(time::Duration::from_millis(5));
         let mut input_to_do = Vec::new();
         if let Some(game) = &*game_board.lock().unwrap() {
-            let mut hashmap: HashMap<(Tetrimino, bool), Vec<Input>> = HashMap::new();
             let matrix = game.matrix();
             if let Some(tetrimino) = game.current_tetrimino() {
                 if game.stocked_tetrimino() == TetriminoType::None {
@@ -39,38 +39,22 @@ pub fn agent_thread(mut stream: TcpStream, game_board: Arc<Mutex<Option<PlayerGa
                         .unwrap();
                 } else {
                     let stocked_tetrimino = game.stocked_tetrimino();
+                    let pending_tetriminos = game.pending_tetriminos();
 
-                    find_all_possible_positions(&mut hashmap, matrix, &tetrimino, Vec::new());
-
-                    find_all_possible_positions(
-                        &mut hashmap,
+                    input_to_do = get_best_score_position(
+                        tetrimino,
+                        stocked_tetrimino,
+                        pending_tetriminos,
                         matrix,
-                        &Tetrimino::new(stocked_tetrimino),
-                        vec![Input::StockTetrimino],
-                    );
-
-                    let mut placed_tetrimino: Vec<_> = hashmap
-                        .keys()
-                        .filter(|x| x.1)
-                        .map(|x| (x.0, place_tetrimino(&x.0, matrix)))
-                        .collect();
-
-                    placed_tetrimino.sort_by(|a, b| score_matrix(&b.1).cmp(&score_matrix(&a.1)));
-
-                    println!("SCORE: {}", score_matrix(&placed_tetrimino[0].1));
-
-                    input_to_do = hashmap
-                        .get(&(placed_tetrimino[0].0, true))
-                        .unwrap()
-                        .iter()
-                        .map(|x| x.clone())
-                        .collect();
+                        1,
+                    )
+                    .1;
                 }
             } else {
                 stream
                     .write(&ClientRequest::Input(Input::Fall).into_bytes())
                     .unwrap();
-                thread::sleep(time::Duration::from_millis(200));
+                thread::sleep(time::Duration::from_millis(1));
             }
         }
         for i in input_to_do.iter() {
@@ -79,6 +63,107 @@ pub fn agent_thread(mut stream: TcpStream, game_board: Arc<Mutex<Option<PlayerGa
                 .unwrap();
             thread::sleep(time::Duration::from_millis(40));
         }
+    }
+}
+
+pub fn get_best_score_position(
+    tetrimino: Tetrimino,
+    stocked_tetrimino: TetriminoType,
+    pending_tetriminos: Vec<TetriminoType>,
+    matrix: &Matrix,
+    deep: usize,
+) -> (i32, Vec<Input>) {
+    let mut hashmap: HashMap<(Tetrimino, bool), Vec<Input>> = HashMap::new();
+
+    find_all_possible_positions(&mut hashmap, matrix, &tetrimino, Vec::new());
+
+    find_all_possible_positions(
+        &mut hashmap,
+        matrix,
+        &Tetrimino::new(stocked_tetrimino),
+        vec![Input::StockTetrimino],
+    );
+
+    let mut placed_tetrimino: Vec<_> = hashmap
+        .keys()
+        .filter(|x| x.1)
+        .map(|x| {
+            let placed_simulation = place_tetrimino(&x.0, matrix);
+            (x.0, placed_simulation.0, placed_simulation.1)
+        })
+        .collect();
+
+    if deep == 0 || pending_tetriminos.len() == 0 {
+        placed_tetrimino.sort_by(|a, b| {
+            let (mut malus_a, mut malus_b) = (0, 0);
+            if b.2 > 1 {
+                malus_b = (b.2 * b.2 - 1) as i32 * 100
+            }
+            if a.2 > 1 {
+                malus_a = (a.2 * a.2 - 1) as i32 * 100
+            }
+
+            (score_matrix(&b.1) + malus_b).cmp(&(score_matrix(&a.1) + malus_a))
+        });
+        if placed_tetrimino[0].2 > 1 {
+            //println!("{}", placed_tetrimino[0].2);
+        }
+        (
+            score_matrix(&placed_tetrimino[0].1),
+            hashmap
+                .get(&(placed_tetrimino[0].0, true))
+                .unwrap()
+                .iter()
+                .map(|x| x.clone())
+                .collect(),
+        )
+    } else {
+        let mut pending_tetriminos = pending_tetriminos;
+        let new_tetrimino = Tetrimino::new(pending_tetriminos.pop().unwrap());
+        let mut placed_tetrimino: Vec<_> = placed_tetrimino
+            .iter()
+            .map(|x| {
+                let stocked_tetrimino_after_move =
+                    if hashmap.get(&(x.0, true)).unwrap().iter().next()
+                        == Some(&Input::StockTetrimino)
+                    {
+                        tetrimino.ttype()
+                    } else {
+                        stocked_tetrimino
+                    };
+
+                let best_score_position = get_best_score_position(
+                    new_tetrimino,
+                    stocked_tetrimino_after_move,
+                    pending_tetriminos.clone(),
+                    &x.1,
+                    deep - 1,
+                );
+
+                let mut malus = 0;
+                if x.2 > 1 {
+                    malus = (x.2 * x.2 - 1) as i32 * 100;
+                    //println!("MALUS !!!");
+                }
+
+                (
+                    (best_score_position.0 + malus as i32, best_score_position.1),
+                    x,
+                )
+            })
+            .collect();
+
+        placed_tetrimino.sort_by(|a, b| (b.0).0.cmp(&(a.0).0));
+
+        (
+            (placed_tetrimino[0].0).0,
+            hashmap
+                .get(&((placed_tetrimino[0].1).0, true))
+                .unwrap()
+                .iter()
+                .map(|x| x.clone())
+                .collect(),
+        )
     }
 }
 
@@ -91,9 +176,10 @@ pub fn find_all_possible_positions(
     for input in [
         Input::FastMove,
         Input::Acceleration,
-        Input::Rotate,
         Input::Left,
         Input::Right,
+        Input::Rotate,
+        Input::RotateRevert,
     ]
     .iter()
     {

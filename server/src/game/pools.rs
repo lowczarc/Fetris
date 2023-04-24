@@ -208,13 +208,24 @@ impl<'a> Pool<'a> {
                     player.last_call = Instant::now();
                 }
             }
+            Input::RotateRevert => {
+                let matrix = player.player.matrix().clone();
+                if let Some(tetrimino) = player.player.current_tetrimino_mut() {
+                    if tetrimino.rotate(&matrix, true) {
+                        let _ = self
+                            .stream_list
+                            .send_to(socket, ServerRequest::MinifiedAction(GameAction::Rotate(true)));
+                        player.last_call = Instant::now();
+                    }
+                }
+            }
             Input::Rotate => {
                 let matrix = player.player.matrix().clone();
                 if let Some(tetrimino) = player.player.current_tetrimino_mut() {
-                    if tetrimino.rotate(&matrix) {
+                    if tetrimino.rotate(&matrix, false) {
                         let _ = self
                             .stream_list
-                            .send_to(socket, ServerRequest::MinifiedAction(GameAction::Rotate));
+                            .send_to(socket, ServerRequest::MinifiedAction(GameAction::Rotate(false)));
                         player.last_call = Instant::now();
                     }
                 }

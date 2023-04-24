@@ -90,20 +90,43 @@ impl Tetrimino {
         }
     }
 
-    pub fn rotate(&mut self, matrix: &Matrix) -> bool {
+    pub fn rotate(&mut self, matrix: &Matrix, revert_direction: bool) -> bool {
         let mut rotated_tetri = self.clone();
-        rotated_tetri.rotation = (self.rotation + 3) % 4;
+        if revert_direction {
+            rotated_tetri.rotation = (self.rotation + 1) % 4;
+        } else {
+            rotated_tetri.rotation = (self.rotation + 3) % 4;
+        }
 
         let mut success = false;
-        for (x, y) in wall_kicks_tests_list(self.ttype, rotated_tetri.rotation).iter() {
-            rotated_tetri.position.0 += x;
-            rotated_tetri.position.1 -= y;
+        for (x, y) in wall_kicks_tests_list(
+            self.ttype,
+            if revert_direction {
+                (rotated_tetri.rotation + 3) % 4
+            } else {
+                rotated_tetri.rotation
+            },
+        )
+        .iter()
+        {
+            if revert_direction {
+                rotated_tetri.position.0 -= x;
+                rotated_tetri.position.1 += y;
+            } else {
+                rotated_tetri.position.0 += x;
+                rotated_tetri.position.1 -= y;
+            }
             if rotated_tetri.is_valid(matrix) {
                 success = true;
                 break;
             }
-            rotated_tetri.position.0 -= x;
-            rotated_tetri.position.1 += y;
+            if revert_direction {
+                rotated_tetri.position.0 += x;
+                rotated_tetri.position.1 -= y;
+            } else {
+                rotated_tetri.position.0 -= x;
+                rotated_tetri.position.1 += y;
+            }
         }
 
         if success {

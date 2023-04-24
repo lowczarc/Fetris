@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
+pub mod actions;
 pub mod game;
 pub mod rotation_tetrimino;
 pub mod tetrimino;
@@ -15,15 +16,12 @@ pub enum ClientRequest {
     Input(game::Input),
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ServerRequest {
     BadRequest,
-    GameReady(game::PlayerGame),
-    Action(
-        game::GameAction,
-        game::PlayerGame,
-        Vec<game::PlayerMinimalInfos>,
-    ),
+    GameReady(game::PlayerGame, u16),
+    PlayerListUpdate(Vec<game::PlayerMinimalInfos>),
+    MinifiedAction(game::GameAction),
     GameOver,
     Message(String, String),
 }

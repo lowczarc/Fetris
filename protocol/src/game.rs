@@ -83,10 +83,18 @@ impl PlayerGame {
         }
     }
 
-    pub fn new_tetrimino(&mut self) {
+    pub fn new_tetrimino(&mut self) -> TetriminoType {
+        let added_tetrimino = self.bag.choose_a_tetrimino();
+
+        self.change_tetrimino_add_pending(added_tetrimino);
+
+        added_tetrimino
+    }
+
+    pub fn change_tetrimino_add_pending(&mut self, added_tetrimino: TetriminoType) {
         let tetrimino = self.pending_tetriminos.pop().unwrap();
-        self.pending_tetriminos
-            .insert(0, self.bag.choose_a_tetrimino());
+
+        self.pending_tetriminos.insert(0, added_tetrimino);
         self.change_current_tetrimino(tetrimino);
     }
 
@@ -138,6 +146,9 @@ impl PlayerGame {
     }
 
     pub fn add_garbage(&mut self, hole: usize) {
+        if let Some(tetrimino) = self.current_tetrimino.as_mut() {
+            tetrimino.apply_direction(Direction::Up);
+        }
         let mut new_row = [Some(TetriminoType::None); 10];
         new_row[hole] = None;
 
@@ -151,7 +162,7 @@ impl PlayerGame {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum Direction {
     Left,
     Right,
@@ -160,13 +171,15 @@ pub enum Direction {
     FastDown,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum GameAction {
     MoveCurrentTetrimino(Direction),
-    Rotate,
-    NewTetrimino,
-    GetGarbage(u32),
+    PlaceCurrentTetrimino,
+    Rotate(bool),
+    NewTetrimino(TetriminoType),
+    GetGarbage(u32, usize),
     StockTetrimino,
+    Fall,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -175,6 +188,8 @@ pub enum Input {
     Right,
     FastMove,
     Rotate,
+    RotateRevert,
     StockTetrimino,
     Acceleration,
+    Fall,
 }
